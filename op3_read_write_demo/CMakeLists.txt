@@ -1,75 +1,35 @@
-################################################################################
-# Set minimum required version of cmake, project name and compile options
-################################################################################
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(op3_read_write_demo)
 
-################################################################################
-# Find catkin packages and libraries for catkin and system dependencies
-################################################################################
-find_package(catkin REQUIRED COMPONENTS
-  robotis_controller_msgs
-  roscpp
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(robotis_controller_msgs REQUIRED)
+
+include_directories(
+  include
+  ${rclcpp_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${std_msgs_INCLUDE_DIRS}
+  ${robotis_controller_msgs_INCLUDE_DIRS}
+)
+
+add_executable(read_write src/read_write.cpp)
+
+ament_target_dependencies(read_write
+  rclcpp
   sensor_msgs
   std_msgs
+  robotis_controller_msgs
 )
 
-################################################################################
-# Setup for python modules and scripts
-################################################################################
-
-################################################################################
-# Declare ROS messages, services and actions
-################################################################################
-
-################################################################################
-# Declare ROS dynamic reconfigure parameters
-################################################################################
-
-################################################################################
-# Declare catkin specific configuration to be passed to dependent projects
-################################################################################
-catkin_package(
-  INCLUDE_DIRS
-  CATKIN_DEPENDS
-    roscpp
-    robotis_controller_msgs
-    roscpp
-    sensor_msgs
-    std_msgs
-)
-
-################################################################################
-# Build
-################################################################################
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
-
-add_executable(read_write
-  src/read_write.cpp
-)
-
-add_dependencies(read_write
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-)
-
-target_link_libraries(read_write
-  ${catkin_LIBRARIES}
-)
-
-################################################################################
-# Install
-################################################################################
 install(TARGETS read_write
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY launch
-        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  DESTINATION share/${PROJECT_NAME}
 )
 
-################################################################################
-# Test
-################################################################################
+ament_package()

@@ -16,15 +16,15 @@
 
 /* Author: Kayman Jung */
 
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <sensor_msgs/JointState.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 
-#include "robotis_controller_msgs/SetModule.h"
-#include "robotis_controller_msgs/SyncWriteItem.h"
+#include "robotis_controller_msgs/srv/set_module.hpp"
+#include "robotis_controller_msgs/msg/sync_write_item.hpp"
 
-void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg);
-void jointstatesCallback(const sensor_msgs::JointState::ConstPtr& msg);
+void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
+void jointstatesCallback(const sensor_msgs::msg::JointState::SharedPtr msg);
 void readyToDemo();
 void setModule(const std::string& module_name);
 void goInitPose();
@@ -43,15 +43,15 @@ enum ControlModule
 const int SPIN_RATE = 30;
 const bool DEBUG_PRINT = false;
 
-ros::Publisher init_pose_pub;
-ros::Publisher sync_write_pub;
-ros::Publisher dxl_torque_pub;
-ros::Publisher write_joint_pub;
-ros::Publisher write_joint_pub2;
-ros::Subscriber buttuon_sub;
-ros::Subscriber read_joint_sub;
+rclcpp::Publisher<std_msgs::msg::String>::SharedPtr init_pose_pub;
+rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr sync_write_pub;
+rclcpp::Publisher<std_msgs::msg::String>::SharedPtr dxl_torque_pub;
+rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr write_joint_pub;
+rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr write_joint_pub2;
+rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub;
+rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr read_joint_sub;
 
-ros::ServiceClient set_joint_module_client;
+rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedPtr set_joint_module_client;
 
 int control_module = None;
 bool demo_ready = false;
@@ -60,73 +60,71 @@ bool demo_ready = false;
 int main(int argc, char **argv)
 {
   //init ros
-  ros::init(argc, argv, "read_write");
+  rclcpp::init(argc, argv);
 
-  ros::NodeHandle nh(ros::this_node::getName());
+  auto nh = rclcpp::Node::make_shared("read_write");
 
-  init_pose_pub = nh.advertise<std_msgs::String>("/robotis/base/ini_pose", 0);
-  sync_write_pub = nh.advertise<robotis_controller_msgs::SyncWriteItem>("/robotis/sync_write_item", 0);
-  dxl_torque_pub = nh.advertise<std_msgs::String>("/robotis/dxl_torque", 0);
-  write_joint_pub = nh.advertise<sensor_msgs::JointState>("/robotis/set_joint_states", 0);
-  write_joint_pub2 = nh.advertise<sensor_msgs::JointState>("/robotis/direct_control/set_joint_states", 0);
+  init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 10);
+  sync_write_pub = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  dxl_torque_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
+  write_joint_pub = nh->create_publisher<sensor_msgs::msg::JointState>("/robotis/set_joint_states", 10);
+  write_joint_pub2 = nh->create_publisher<sensor_msgs::msg::JointState>("/robotis/direct_control/set_joint_states", 10);
 
-  read_joint_sub = nh.subscribe("/robotis/present_joint_states", 1, jointstatesCallback);
-  buttuon_sub = nh.subscribe("/robotis/open_cr/button", 1, buttonHandlerCallback);
+  read_joint_sub = nh->create_subscription<sensor_msgs::msg::JointState>("/robotis/present_joint_states", 10, jointstatesCallback);
+  button_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
 
   // service
-  set_joint_module_client = nh.serviceClient<robotis_controller_msgs::SetModule>("/robotis/set_present_ctrl_modules");
+  set_joint_module_client = nh->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
 
-  ros::start();
-
-  //set node loop rate
-  ros::Rate loop_rate(SPIN_RATE);
+  rclcpp::Rate loop_rate(SPIN_RATE);
 
   // wait for starting of op3_manager
   std::string manager_name = "/op3_manager";
-  while (ros::ok())
+  while (rclcpp::ok())
   {
-    ros::Duration(1.0).sleep();
+    rclcpp::sleep_for(std::chrono::seconds(1));
 
     if (checkManagerRunning(manager_name) == true)
     {
       break;
-      ROS_INFO_COND(DEBUG_PRINT, "Succeed to connect");
+      RCLCPP_INFO(nh->get_logger(), "Succeed to connect");
     }
-    ROS_WARN("Waiting for op3 manager");
+    RCLCPP_WARN(nh->get_logger(), "Waiting for op3 manager");
   }
 
   readyToDemo();
 
   //node loop
-  while (ros::ok())
+  while (rclcpp::ok())
   {
     // process
 
     //execute pending callbacks
-    ros::spinOnce();
+    rclcpp::spin_some(nh);
 
     //relax to fit output rate
     loop_rate.sleep();
   }
 
   //exit program
+  rclcpp::shutdown();
   return 0;
 }
 
-void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
+void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   // starting demo using robotis_controller
   if (msg->data == "mode")
   {
     control_module = Framework;
-    ROS_INFO("Button : mode | Framework");
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Button : mode | Framework");
     readyToDemo();
   }
   // starting demo using direct_control_module
   else if (msg->data == "start")
   {
     control_module = DirectControlModule;
-    ROS_INFO("Button : start | Direct control module");
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Button : start | Direct control module");
     readyToDemo();
   }
   // torque on all joints of ROBOTIS-OP3
@@ -137,12 +135,12 @@ void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
   }
 }
 
-void jointstatesCallback(const sensor_msgs::JointState::ConstPtr& msg)
+void jointstatesCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 {
   if(control_module == None)
     return;
 
-  sensor_msgs::JointState write_msg;
+  sensor_msgs::msg::JointState write_msg;
   write_msg.header = msg->header;
 
   for(int ix = 0; ix < msg->name.size(); ix++)
@@ -176,26 +174,26 @@ void jointstatesCallback(const sensor_msgs::JointState::ConstPtr& msg)
 
   // publish a message to set the joint angles
   if(control_module == Framework)
-    write_joint_pub.publish(write_msg);
+    write_joint_pub->publish(write_msg);
   else if(control_module == DirectControlModule)
-    write_joint_pub2.publish(write_msg);
+    write_joint_pub2->publish(write_msg);
 }
 
 void readyToDemo()
 {
-  ROS_INFO("Start Read-Write Demo");
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Start Read-Write Demo");
   // turn off LED
   setLED(0x04);
 
   torqueOnAll();
-  ROS_INFO("Torque on All joints");
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Torque on All joints");
 
   // send message for going init posture
   goInitPose();
-  ROS_INFO("Go Init pose");
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Go Init pose");
 
   // wait while ROBOTIS-OP3 goes to the init posture.
-  ros::Duration(4.0).sleep();
+  rclcpp::sleep_for(std::chrono::seconds(4));
 
   // turn on R/G/B LED [0x01 | 0x02 | 0x04]
   setLED(control_module);
@@ -204,62 +202,63 @@ void readyToDemo()
   if(control_module == Framework)
   {
     setModule("none");
-    ROS_INFO("Change module to none");
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Change module to none");
   }
   else if(control_module == DirectControlModule)
   {
     setModule("direct_control_module");
-    ROS_INFO("Change module to direct_control_module");
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Change module to direct_control_module");
   }
   else
     return;
 
   // torque off : right arm
   torqueOff("right");
-  ROS_INFO("Torque off");
+  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Torque off");
 }
 
 void goInitPose()
 {
-  std_msgs::String init_msg;
+  std_msgs::msg::String init_msg;
   init_msg.data = "ini_pose";
 
-  init_pose_pub.publish(init_msg);
+  init_pose_pub->publish(init_msg);
 }
 
 void setLED(int led)
 {
-  robotis_controller_msgs::SyncWriteItem syncwrite_msg;
+  robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;
   syncwrite_msg.item_name = "LED";
   syncwrite_msg.joint_name.push_back("open-cr");
   syncwrite_msg.value.push_back(led);
 
-  sync_write_pub.publish(syncwrite_msg);
+  sync_write_pub->publish(syncwrite_msg);
 }
 
 bool checkManagerRunning(std::string& manager_name)
 {
-  std::vector<std::string> node_list;
-  ros::master::getNodes(node_list);
+  auto node = rclcpp::Node::make_shared("check_manager_node");
+  auto node_list = node->get_node_names();
 
-  for (unsigned int node_list_idx = 0; node_list_idx < node_list.size(); node_list_idx++)
+  for (const auto& node_name : node_list)
   {
-    if (node_list[node_list_idx] == manager_name)
+    if (node_name == manager_name)
       return true;
   }
 
-  ROS_ERROR("Can't find op3_manager");
+  RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Can't find op3_manager");
   return false;
 }
 
 void setModule(const std::string& module_name)
 {
-  robotis_controller_msgs::SetModule set_module_srv;
-  set_module_srv.request.module_name = module_name;
+  auto request = std::make_shared<robotis_controller_msgs::srv::SetModule::Request>();
+  request->module_name = module_name;
 
-  if (set_joint_module_client.call(set_module_srv) == false)
+  auto result = set_joint_module_client->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(rclcpp::Node::make_shared("set_module_node"), result) != rclcpp::FutureReturnCode::SUCCESS)
   {
-    ROS_ERROR("Failed to set module");
+    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to set module");
     return;
   }
 
@@ -268,15 +267,15 @@ void setModule(const std::string& module_name)
 
 void torqueOnAll()
 {
-  std_msgs::String check_msg;
+  std_msgs::msg::String check_msg;
   check_msg.data = "check";
 
-  dxl_torque_pub.publish(check_msg);
+  dxl_torque_pub->publish(check_msg);
 }
 
 void torqueOff(const std::string& body_side)
 {
-  robotis_controller_msgs::SyncWriteItem syncwrite_msg;
+  robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;
   int torque_value = 0;
   syncwrite_msg.item_name = "torque_enable";
 
@@ -301,5 +300,5 @@ void torqueOff(const std::string& body_side)
   else
     return;
 
-  sync_write_pub.publish(syncwrite_msg);
+  sync_write_pub->publish(syncwrite_msg);
 }
