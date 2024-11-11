@@ -29,7 +29,7 @@ void readyToDemo();
 void setModule(const std::string& module_name);
 void goInitPose();
 void setLED(int led);
-bool checkManagerRunning(std::string& manager_name);
+bool checkManagerRunning(rclcpp::Node::SharedPtr node, std::string& manager_name);
 void torqueOnAll();
 void torqueOff(const std::string& body_side);
 
@@ -62,9 +62,9 @@ int main(int argc, char **argv)
   //init ros
   rclcpp::init(argc, argv);
 
-  auto nh = rclcpp::Node::make_shared("read_write");
+  auto nh = rclcpp::Node::make_shared("read_write_demo");
 
-  init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 10);
+  init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 5);
   sync_write_pub = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
   dxl_torque_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
   write_joint_pub = nh->create_publisher<sensor_msgs::msg::JointState>("/robotis/set_joint_states", 10);
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
   {
     rclcpp::sleep_for(std::chrono::seconds(1));
 
-    if (checkManagerRunning(manager_name) == true)
+    if (checkManagerRunning(nh, manager_name) == true)
     {
       break;
       RCLCPP_INFO(nh->get_logger(), "Succeed to connect");
@@ -117,14 +117,14 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
   if (msg->data == "mode")
   {
     control_module = Framework;
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Button : mode | Framework");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Button : mode | Framework");
     readyToDemo();
   }
   // starting demo using direct_control_module
   else if (msg->data == "start")
   {
     control_module = DirectControlModule;
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Button : start | Direct control module");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Button : start | Direct control module");
     readyToDemo();
   }
   // torque on all joints of ROBOTIS-OP3
@@ -181,16 +181,16 @@ void jointstatesCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 
 void readyToDemo()
 {
-  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Start Read-Write Demo");
+  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Start Read-Write Demo");
   // turn off LED
   setLED(0x04);
 
   torqueOnAll();
-  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Torque on All joints");
+  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Torque on All joints");
 
   // send message for going init posture
   goInitPose();
-  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Go Init pose");
+  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Go Init pose");
 
   // wait while ROBOTIS-OP3 goes to the init posture.
   rclcpp::sleep_for(std::chrono::seconds(4));
@@ -202,19 +202,19 @@ void readyToDemo()
   if(control_module == Framework)
   {
     setModule("none");
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Change module to none");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Change module to none");
   }
   else if(control_module == DirectControlModule)
   {
     setModule("direct_control_module");
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Change module to direct_control_module");
+    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Change module to direct_control_module");
   }
   else
     return;
 
   // torque off : right arm
   torqueOff("right");
-  RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Torque off");
+  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Torque off");
 }
 
 void goInitPose()
@@ -235,9 +235,8 @@ void setLED(int led)
   sync_write_pub->publish(syncwrite_msg);
 }
 
-bool checkManagerRunning(std::string& manager_name)
+bool checkManagerRunning(rclcpp::Node::SharedPtr node, std::string& manager_name)
 {
-  auto node = rclcpp::Node::make_shared("check_manager_node");
   auto node_list = node->get_node_names();
 
   for (const auto& node_name : node_list)
@@ -246,7 +245,7 @@ bool checkManagerRunning(std::string& manager_name)
       return true;
   }
 
-  RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Can't find op3_manager");
+  RCLCPP_ERROR(rclcpp::get_logger("read_write_demo"), "Can't find op3_manager");
   return false;
 }
 
@@ -258,7 +257,7 @@ void setModule(const std::string& module_name)
   auto result = set_joint_module_client->async_send_request(request);
   if (rclcpp::spin_until_future_complete(rclcpp::Node::make_shared("set_module_node"), result) != rclcpp::FutureReturnCode::SUCCESS)
   {
-    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to set module");
+    RCLCPP_ERROR(rclcpp::get_logger("read_write_demo"), "Failed to set module");
     return;
   }
 
