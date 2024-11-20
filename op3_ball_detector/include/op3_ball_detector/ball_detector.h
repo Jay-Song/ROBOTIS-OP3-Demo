@@ -15,21 +15,24 @@
 *******************************************************************************/
 
 /* Author: Kayman Jung */
-
 #ifndef _BALL_DETECTOR_H_
 #define _BALL_DETECTOR_H_
 
 #include <string>
 
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/String.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/image_encodings.h>
-#include <dynamic_reconfigure/server.h>
-#include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/image_encodings.hpp>
+// #include <dynamic_reconfigure/server.h>
+#include "op3_ball_detector_msgs/msg/circle_set_stamped.hpp"
+#include "op3_ball_detector_msgs/msg/ball_detector_params.hpp"
+#include "op3_ball_detector_msgs/srv/get_parameters.hpp"
+#include "op3_ball_detector_msgs/srv/set_parameters.hpp"
+#include <cv_bridge/cv_bridge.hpp>
+#include <image_transport/image_transport.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -37,16 +40,12 @@
 #include <yaml-cpp/yaml.h>
 
 #include "op3_ball_detector/ball_detector_config.h"
-
-#include "op3_ball_detector/DetectorParamsConfig.h"
-#include "op3_ball_detector/CircleSetStamped.h"
-#include "op3_ball_detector/GetParameters.h"
-#include "op3_ball_detector/SetParameters.h"
+#include "op3_ball_detector/detector_params_config.h"
 
 namespace robotis_op
 {
 
-class BallDetector
+class BallDetector : public rclcpp::Node
 {
  public:
   BallDetector();
@@ -55,7 +54,7 @@ class BallDetector
   //checks if a new image has been received
   bool newImage();
 
-  //execute circle detection with the cureent image
+  //execute circle detection with the current image
   void process();
 
   //publish the output image (input image + marked circles)
@@ -68,17 +67,19 @@ class BallDetector
   const static int NOT_FOUND_TH = 30;
 
   //callbacks to image subscription
-  void imageCallback(const sensor_msgs::ImageConstPtr & msg);
+  void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
 
   //callbacks to camera info subscription
-  void cameraInfoCallback(const sensor_msgs::CameraInfo & msg);
+  void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
-  void dynParamCallback(op3_ball_detector::DetectorParamsConfig &config, uint32_t level);
-  void enableCallback(const std_msgs::Bool::ConstPtr &msg);
+  void dynParamCallback(DetectorParamsConfig &config, uint32_t level);
+  void enableCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
-  void paramCommandCallback(const std_msgs::String::ConstPtr &msg);
-  bool setParamCallback(op3_ball_detector::SetParameters::Request &req, op3_ball_detector::SetParameters::Response &res);
-  bool getParamCallback(op3_ball_detector::GetParameters::Request &req, op3_ball_detector::GetParameters::Response &res);
+  void paramCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+  bool setParamCallback(const std::shared_ptr<op3_ball_detector_msgs::srv::SetParameters::Request> req,
+                        std::shared_ptr<op3_ball_detector_msgs::srv::SetParameters::Response> res);
+  bool getParamCallback(const std::shared_ptr<op3_ball_detector_msgs::srv::GetParameters::Request> req,
+                        std::shared_ptr<op3_ball_detector_msgs::srv::GetParameters::Response> res);
   void resetParameter();
   void publishParam();
 
@@ -97,10 +98,7 @@ class BallDetector
   void houghDetection2(const cv::Mat &input_hough);
   void drawOutputImage();
 
-  //ros node handle
-  ros::NodeHandle nh_;
-
-  ros::Subscriber enable_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enable_sub_;
 
   //image publisher/subscriber
   image_transport::ImageTransport it_;
@@ -114,13 +112,13 @@ class BallDetector
   int not_found_count_;
 
   //circle set publisher
-  op3_ball_detector::CircleSetStamped circles_msg_;
-  ros::Publisher circles_pub_;
+  op3_ball_detector_msgs::msg::CircleSetStamped circles_msg_;
+  rclcpp::Publisher<op3_ball_detector_msgs::msg::CircleSetStamped>::SharedPtr circles_pub_;
 
   //camera info subscriber
-  sensor_msgs::CameraInfo camera_info_msg_;
-  ros::Subscriber camera_info_sub_;
-  ros::Publisher camera_info_pub_;
+  sensor_msgs::msg::CameraInfo camera_info_msg_;
+  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
 
   //dynamic reconfigure
   DetectorConfig params_config_;
@@ -129,16 +127,16 @@ class BallDetector
 
   // web setting
   std::string default_setting_path_;
-  ros::Publisher param_pub_;
-  ros::Subscriber param_command_sub_;
-  ros::ServiceServer get_param_client_;
-  ros::ServiceServer set_param_client_;
+  rclcpp::Publisher<op3_ball_detector_msgs::msg::BallDetectorParams>::SharedPtr param_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr param_command_sub_;
+  rclcpp::Service<op3_ball_detector_msgs::srv::GetParameters>::SharedPtr get_param_client_;
+  rclcpp::Service<op3_ball_detector_msgs::srv::SetParameters>::SharedPtr set_param_client_;
 
   //flag indicating a new image has been received
   bool new_image_flag_;
 
   //image time stamp and frame id
-  ros::Time sub_time_;
+  rclcpp::Time sub_time_;
   std::string image_frame_id_;
 
   //img encoding id
@@ -156,8 +154,8 @@ class BallDetector
   cv::Mat in_image_;
   cv::Mat out_image_;
 
-  dynamic_reconfigure::Server<op3_ball_detector::DetectorParamsConfig> param_server_;
-  dynamic_reconfigure::Server<op3_ball_detector::DetectorParamsConfig>::CallbackType callback_fnc_;
+  // dynamic_reconfigure::Server<op3_ball_detector_msgs::msg::BallDetectorParams> param_server_;
+  // dynamic_reconfigure::Server<op3_ball_detector_msgs::msg::BallDetectorParams>::CallbackType callback_fnc_;
 };
 
 }       // namespace robotis_op

@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>op3_ball_detector</name>
   <version>0.1.0</version>
   <description>
     This package implements a circle-like shape detector of the input image.
-    It requires and input image and publish, at frame rate, a marked image
+    It requires an input image and publishes, at frame rate, a marked image
     and a stamped array of circle centers and radius.
   </description>
   <license>Apache 2.0</license>
@@ -15,9 +15,8 @@
   <url type="emanual">http://emanual.robotis.com/docs/en/platform/op3/introduction/</url>
   <url type="repository">https://github.com/ROBOTIS-GIT/ROBOTIS-OP3-Demo</url>
   <url type="bugtracker">https://github.com/ROBOTIS-GIT/ROBOTIS-OP3-Demo/issues</url>
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>roscpp</depend>
-  <depend>roslib</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
@@ -27,9 +26,11 @@
   <depend>boost</depend>  
   <depend>opencv3</depend>
   <depend>yaml-cpp</depend>
-  <build_depend>message_generation</build_depend>
-  <build_export_depend>message_runtime</build_export_depend>
-  <exec_depend>message_runtime</exec_depend>
+  <depend>op3_ball_detector_msgs</depend>
+  <depend>ament_index_cpp</depend>
   <exec_depend>usb_cam</exec_depend>
   <exec_depend>uvc_camera</exec_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

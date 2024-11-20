@@ -16,57 +16,16 @@
 
 /* Author: Kayman Jung */
 
-#ifndef _DETECTOR_CONFIG_H_
-#define _DETECTOR_CONFIG_H_
+#ifndef _DETECTOR_PARAMS_CONFIG_H_
+#define _DETECTOR_PARAMS_CONFIG_H_
 
 #include <rclcpp/rclcpp.hpp>
 
 namespace robotis_op
 {
 
-//constants
-const int GAUSSIAN_BLUR_SIZE_DEFAULT = 7;
-const double GAUSSIAN_BLUR_SIGMA_DEFAULT = 2;
-const double CANNY_EDGE_TH_DEFAULT = 130;
-const double HOUGH_ACCUM_RESOLUTION_DEFAULT = 2;
-const double MIN_CIRCLE_DIST_DEFAULT = 30;
-const double HOUGH_ACCUM_TH_DEFAULT = 120;
-const int MIN_RADIUS_DEFAULT = 30;
-const int MAX_RADIUS_DEFAULT = 400;
-const unsigned int IMG_MONO = 0;
-const unsigned int IMG_RGB8 = 1;
-const int FILTER_RANGE_DEFAULT_MIN = 160;
-const int FILTER_RANGE_DEFAULT_MAX = 255;
-const int FILTER_H_MIN_DEFAULT = 0;
-const int FILTER_H_MAX_DEFAULT = 30;
-const int FILTER_S_MIN_DEFAULT = 0;
-const int FILTER_S_MAX_DEFAULT = 255;
-const int FILTER_V_MIN_DEFAULT = 0;
-const int FILTER_V_MAX_DEFAULT = 255;
-const int ELLIPSE_SIZE = 5;
 
-class HsvFilter
-{
- public:
-  HsvFilter()
-      : h_min(FILTER_H_MIN_DEFAULT),
-        h_max(FILTER_H_MAX_DEFAULT),
-        s_min(FILTER_S_MIN_DEFAULT),
-        s_max(FILTER_S_MAX_DEFAULT),
-        v_min(FILTER_V_MIN_DEFAULT),
-        v_max(FILTER_V_MAX_DEFAULT)
-  {
-  }
-
-  int h_min;
-  int h_max;
-  int s_min;
-  int s_max;
-  int v_min;
-  int v_max;
-};
-
-class DetectorConfig
+class DetectorParamsConfig
 {
  public:
   int gaussian_blur_size;         // size of gaussian blur kernel mask [pixel]
@@ -77,31 +36,51 @@ class DetectorConfig
   double hough_accum_th;          // accumulator threshold to decide circle detection
   int min_radius;                 // minimum circle radius allowed
   int max_radius;                 // maximum circle radius allowed
-  HsvFilter filter_threshold;     // filter threshold
+  int filter_h_min;               // filter threshold
+  int filter_h_max;               // filter threshold
+  int filter_s_min;               // filter threshold
+  int filter_s_max;               // filter threshold
+  int filter_v_min;               // filter threshold
+  int filter_v_max;               // filter threshold
   bool use_second_filter;
-  HsvFilter filter2_threshold;     // filter threshold
+  int filter2_h_min;              // filter threshold
+  int filter2_h_max;              // filter threshold
+  int filter2_s_min;              // filter threshold
+  int filter2_s_max;              // filter threshold
+  int filter2_v_min;              // filter threshold
+  int filter2_v_max;              // filter threshold
   int ellipse_size;
-  bool debug;                     // to debug log
+  bool debug_image;                     // to debug log
 
-  DetectorConfig()
+  DetectorParamsConfig()
       : canny_edge_th(CANNY_EDGE_TH_DEFAULT),
         hough_accum_resolution(HOUGH_ACCUM_RESOLUTION_DEFAULT),
         min_circle_dist(MIN_CIRCLE_DIST_DEFAULT),
         hough_accum_th(HOUGH_ACCUM_TH_DEFAULT),
         min_radius(MIN_RADIUS_DEFAULT),
         max_radius(MAX_RADIUS_DEFAULT),
-        filter_threshold(),
+        filter_h_min(FILTER_H_MIN_DEFAULT),
+        filter_h_max(FILTER_H_MAX_DEFAULT),
+        filter_s_min(FILTER_S_MIN_DEFAULT),
+        filter_s_max(FILTER_S_MAX_DEFAULT),
+        filter_v_min(FILTER_V_MIN_DEFAULT),
+        filter_v_max(FILTER_V_MAX_DEFAULT),
         use_second_filter(false),
-        filter2_threshold(),
+        filter2_h_min(FILTER_H_MIN_DEFAULT),
+        filter2_h_max(FILTER_H_MAX_DEFAULT),
+        filter2_s_min(FILTER_S_MIN_DEFAULT),
+        filter2_s_max(FILTER_S_MAX_DEFAULT),
+        filter2_v_min(FILTER_V_MIN_DEFAULT),
+        filter2_v_max(FILTER_V_MAX_DEFAULT),
         ellipse_size(ELLIPSE_SIZE),
-        debug(false)
+        debug_image(false)
   {
   }
 
-  ~DetectorConfig()
+  ~DetectorParamsConfig()
   {
   }
 };
 
 }
-#endif  // _DETECTOR_CONFIG_H_
+#endif  // _DETECTOR_PARAMS_CONFIG_H_

@@ -22,34 +22,33 @@
 int main(int argc, char **argv)
 {
   //init ros
-  ros::init(argc, argv, "ball_detector_node");
+  rclcpp::init(argc, argv);
 
   //create ros wrapper object
-  robotis_op::BallDetector detector;
+  auto node = std::make_shared<robotis_op::BallDetector>();
 
   //set node loop rate
-  ros::Rate loop_rate(30);
+  rclcpp::Rate loop_rate(30);
 
   //node loop
-  while (ros::ok())
+  while (rclcpp::ok())
   {
     //if new image , do things
-    if (detector.newImage())
+    if (node->newImage())
     {
-      detector.process();
-      detector.publishImage();
-      detector.publishCircles();
-
+      node->process();
+      node->publishImage();
+      node->publishCircles();
     }
 
     //execute pending callbacks
-    ros::spinOnce();
+    rclcpp::spin_some(node);
 
     //relax to fit output rate
     loop_rate.sleep();
   }
 
   //exit program
+  rclcpp::shutdown();
   return 0;
 }
-

@@ -1,30 +1,19 @@
-################################################################################
-# Set minimum required version of cmake, project name and compile options
-################################################################################
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(op3_ball_detector)
 
-################################################################################
-# Find catkin packages and libraries for catkin and system dependencies
-################################################################################
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  roslib
-  std_msgs
-  sensor_msgs
-  geometry_msgs
-  dynamic_reconfigure
-  cv_bridge
-  image_transport
-  message_generation
-)
+set(ROS_PACKAGE_NAME ${PROJECT_NAME})
 
+find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
-find_package(OpenCV 3 REQUIRED)
-
-## Resolve system dependency on yaml-cpp, which apparently does not
-## provide a CMake find_package() module.
-## Insert your header file compatible specified path like '#include <yaml-cpp/yaml.h>'
+find_package(op3_ball_detector_msgs REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
 find_path(YAML_CPP_INCLUDE_DIR
@@ -41,64 +30,9 @@ if(NOT ${YAML_CPP_VERSION} VERSION_LESS "0.5")
 add_definitions(-DHAVE_NEW_YAMLCPP)
 endif(NOT ${YAML_CPP_VERSION} VERSION_LESS "0.5")
 
-################################################################################
-# Setup for python modules and scripts
-################################################################################
-
-################################################################################
-# Declare ROS messages, services and actions
-################################################################################
-add_message_files(
-  FILES
-  CircleSetStamped.msg
-  BallDetectorParams.msg
-)
-
-add_service_files(
-  FILES
-  GetParameters.srv
-  SetParameters.srv
-)
-
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs 
-)
-
-################################################################################
-# Declare ROS dynamic reconfigure parameters
-################################################################################
-generate_dynamic_reconfigure_options(
-  cfg/DetectorParams.cfg
-)
-
-################################################################################
-# Declare catkin specific configuration to be passed to dependent projects
-##################################################################################
-catkin_package(
-  INCLUDE_DIRS include
-  CATKIN_DEPENDS
-    roscpp
-    roslib
-    std_msgs
-    sensor_msgs
-    geometry_msgs
-    dynamic_reconfigure
-    cv_bridge
-    image_transport
-    message_runtime
-  DEPENDS Boost OpenCV 
-)
-
-################################################################################
-# Build
-################################################################################
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
-  ${Boost_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
+  ${rclcpp_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIRS}
 )
 
@@ -107,30 +41,32 @@ add_executable(ball_detector_node
   src/ball_detector_node.cpp
 )
 
-add_dependencies(ball_detector_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-target_link_libraries(ball_detector_node
-  ${catkin_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${YAML_CPP_LIBRARIES}
+ament_target_dependencies(ball_detector_node
+  rclcpp
+  std_msgs
+  sensor_msgs
+  geometry_msgs
+  ament_index_cpp 
+  cv_bridge
+  image_transport
+  OpenCV
+  Boost
+  op3_ball_detector_msgs
 )
+target_link_libraries(ball_detector_node ${YAML_CPP_LIBRARIES})
 
-################################################################################
-# Install
-################################################################################
+target_compile_definitions(ball_detector_node PUBLIC "ROS_PACKAGE_NAME=\"${ROS_PACKAGE_NAME}\"")
+
 install(TARGETS ball_detector_node
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(DIRECTORY config launch rviz 
-	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  DESTINATION share/${PROJECT_NAME}
 )
 
-################################################################################
-# Test
-################################################################################
+ament_package()
