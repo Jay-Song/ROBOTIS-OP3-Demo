@@ -23,10 +23,36 @@
 namespace robotis_op
 {
 
+std::string param_names[23] = {
+  "gaussian_blur_size", 
+  "gaussian_blur_sigma", 
+  "canny_edge_th", 
+  "hough_accum_resolution", 
+  "min_circle_dist", 
+  "hough_accum_th", 
+  "min_radius", 
+  "max_radius", 
+  "filter_h_min", 
+  "filter_h_max", 
+  "filter_s_min", 
+  "filter_s_max", 
+  "filter_v_min", 
+  "filter_v_max", 
+  "use_second_filter" 
+  "filter2_h_min", 
+  "filter2_h_max", 
+  "filter2_s_min", 
+  "filter2_s_max", 
+  "filter2_v_min", 
+  "filter2_v_max", 
+  "ellipse_size", 
+  "filter_debug" 
+};
+    
 BallDetector::BallDetector()
   : Node("ball_detector_node"),
-    it_(std::make_shared<BallDetector>()),
     enable_(true),
+    //it_(std::make_shared<BallDetector>()),
     params_config_(),
     init_param_(false),
     not_found_count_(0)
@@ -64,7 +90,13 @@ BallDetector::BallDetector()
   this->declare_parameter("ellipse_size", ELLIPSE_SIZE);
   this->declare_parameter("filter_debug", false);
 
-  //get user parameters from dynamic reconfigure (yaml entries)
+  for (int i = 0; i < 23; i++)
+  {
+    this->param_subscriber_[i] = std::make_shared<rclcpp::ParameterEventHandler>(this);
+    this->callback_handle_[i] = this->param_subscriber_[i]->add_parameter_callback(param_names[i], std::bind(&BallDetector::paramCallback, this, std::placeholders::_1));
+  }
+
+  // get user parameters from dynamic reconfigure (yaml entries)
   this->get_parameter("gaussian_blur_size", detect_config.gaussian_blur_size);
   if (detect_config.gaussian_blur_size % 2 == 0)
     detect_config.gaussian_blur_size -= 1;
@@ -94,13 +126,14 @@ BallDetector::BallDetector()
   this->get_parameter("filter_debug", detect_config.debug);
 
   //sets publishers
-  image_pub_ = it_.advertise("image_out", 100);
+  //it_ = new image_transport::ImageTransport(this->shared_from_this());
+  //image_pub_ = it_->advertise("image_out", 100);
   circles_pub_ = this->create_publisher<op3_ball_detector_msgs::msg::CircleSetStamped>("circle_set", 100);
   camera_info_pub_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("camera_info", 100);
 
   //sets subscribers
   enable_sub_ = this->create_subscription<std_msgs::msg::Bool>("enable", 1, std::bind(&BallDetector::enableCallback, this, std::placeholders::_1));
-  image_sub_ = it_.subscribe("image_in", 1, &BallDetector::imageCallback, this);
+  //image_sub_ = it_->subscribe("image_in", 1, &BallDetector::imageCallback, this);
   camera_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>("cameraInfo_in", 100, std::bind(&BallDetector::cameraInfoCallback, this, std::placeholders::_1));
 
   //initializes newImageFlag
@@ -116,7 +149,8 @@ BallDetector::BallDetector()
   param_command_sub_ = this->create_subscription<std_msgs::msg::String>("param_command", 1, std::bind(&BallDetector::paramCommandCallback, this, std::placeholders::_1));
   set_param_client_ = this->create_service<op3_ball_detector_msgs::srv::SetParameters>("set_param", std::bind(&BallDetector::setParamCallback, this, std::placeholders::_1, std::placeholders::_2));
   get_param_client_ = this->create_service<op3_ball_detector_msgs::srv::GetParameters>("get_param", std::bind(&BallDetector::getParamCallback, this, std::placeholders::_1, std::placeholders::_2));
-  default_setting_path_ = ament_index_cpp::get_package_share_directory(ROS_PACKAGE_NAME) + "/config/ball_detector_params_default.yaml";
+  //default_setting_path_ = ament_index_cpp::get_package_share_directory(ROS_PACKAGE_NAME) + "/config/ball_detector_params_default.yaml";
+  default_setting_path_ = ament_index_cpp::get_package_share_directory("op3_ball_detector") + "/config/ball_detector_params_default.yaml";
 
   //sets config and prints it
   params_config_ = detect_config;
@@ -126,7 +160,139 @@ BallDetector::BallDetector()
 
 BallDetector::~BallDetector()
 {
+  delete it_;
+}
 
+void BallDetector::initialize()
+{
+  it_ = new image_transport::ImageTransport(this->shared_from_this());
+  image_pub_ = it_->advertise("image_out", 100);
+  image_sub_ = it_->subscribe("image_in", 1, &BallDetector::imageCallback, this);
+}
+
+void BallDetector::paramCallback(const rclcpp::Parameter& p)
+{
+  std::string param_name = p.get_name();
+
+  if (param_name == "gaussian_blur_size")
+  {
+    params_config_.gaussian_blur_size = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.gaussian_blur_size);
+  }
+  else if (param_name == "gaussian_blur_sigma")
+  {
+    params_config_.gaussian_blur_sigma = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.gaussian_blur_sigma);
+  }
+  else if (param_name == "canny_edge_th")
+  {
+    params_config_.canny_edge_th = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.canny_edge_th);
+  }
+  else if (param_name == "hough_accum_resolution")
+  {
+    params_config_.hough_accum_resolution = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.hough_accum_resolution);
+  }
+  else if (param_name == "min_circle_dist")
+  {
+    params_config_.min_circle_dist = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.min_circle_dist);
+  }
+  else if (param_name == "hough_accum_th")
+  {
+    params_config_.hough_accum_th = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.hough_accum_th);
+  }
+  else if (param_name == "min_radius")
+  {
+    params_config_.min_radius = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.min_radius);
+  }
+  else if (param_name == "max_radius")
+  {
+    params_config_.max_radius = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.max_radius);
+  }
+  else if (param_name == "filter_h_min")
+  {
+    params_config_.filter_threshold.h_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.h_min);
+  }
+  else if (param_name == "filter_h_max")
+  {
+    params_config_.filter_threshold.h_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.h_max);
+  }
+  else if (param_name == "filter_s_min")
+  {
+    params_config_.filter_threshold.s_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.s_min);
+  }
+  else if (param_name == "filter_s_max")
+  {
+    params_config_.filter_threshold.s_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.s_max);
+  }
+  else if (param_name == "filter_v_min")
+  {
+    params_config_.filter_threshold.v_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.v_min);
+  }
+  else if (param_name == "filter_v_max")
+  {
+    params_config_.filter_threshold.v_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.v_max);
+  }
+  else if (param_name == "use_second_filter")
+  {
+    params_config_.use_second_filter = p.as_bool();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.use_second_filter);
+  }
+  else if (param_name == "filter2_h_min")
+  {
+    params_config_.filter2_threshold.h_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.h_min);
+  }
+  else if (param_name == "filter2_h_max")
+  {
+    params_config_.filter2_threshold.h_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.h_max);
+  }
+  else if (param_name == "filter2_s_min")
+  {
+    params_config_.filter2_threshold.s_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.s_min);
+  }
+  else if (param_name == "filter2_s_max")
+  {
+    params_config_.filter2_threshold.s_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.s_max);
+  }
+  else if (param_name == "filter2_v_min")
+  {
+    params_config_.filter2_threshold.v_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.v_min);
+  }
+  else if (param_name == "filter2_v_max")
+  {
+    params_config_.filter2_threshold.v_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.v_max);
+  }
+  else if (param_name == "ellipse_size")
+  {
+    params_config_.ellipse_size = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.ellipse_size);
+  }
+  else if (param_name == "filter_debug")
+  {
+    params_config_.debug = p.as_bool();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.debug);
+  }
+  else
+  {
+    RCLCPP_ERROR(this->get_logger(), "unknown param name: %s", param_name.c_str());
+  }
 }
 
 bool BallDetector::newImage()
