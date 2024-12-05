@@ -19,18 +19,17 @@
 #ifndef BUTTON_TEST_H_
 #define BUTTON_TEST_H_
 
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/String.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <boost/thread.hpp>
 
 #include "op3_demo/op_demo.h"
-#include "robotis_controller_msgs/SyncWriteItem.h"
+#include "robotis_controller_msgs/msg/sync_write_item.hpp"
 
 namespace robotis_op
 {
 
-class ButtonTest : public OPDemo
+class ButtonTest : public OPDemo, public rclcpp::Node
 {
  public:
   ButtonTest();
@@ -52,11 +51,16 @@ class ButtonTest : public OPDemo
 
   void playSound(const std::string &path);
 
-  void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg);
+  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
 
-  ros::Publisher rgb_led_pub_;
-  ros::Publisher play_sound_pub_;
-  ros::Subscriber buttuon_sub_;
+  rclcpp::TimerBase::SharedPtr process_timer_;
+  rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr rgb_led_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr play_sound_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
+
+  std::shared_ptr<std::thread> queue_thread_;
+  std::shared_ptr<std::thread> process_thread_;
 
   std::string default_mp3_path_;
   int led_count_;

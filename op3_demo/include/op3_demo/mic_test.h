@@ -20,18 +20,17 @@
 #define MIC_TEST_H_
 
 #include <signal.h>
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/String.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <boost/thread.hpp>
 
 #include "op3_demo/op_demo.h"
-#include "robotis_controller_msgs/SyncWriteItem.h"
+#include "robotis_controller_msgs/msg/sync_write_item.hpp"
 
 namespace robotis_op
 {
 
-class MicTest : public OPDemo
+class MicTest : public OPDemo, public rclcpp::Node
 {
  public:
   enum Mic_Test_Status
@@ -68,15 +67,16 @@ class MicTest : public OPDemo
   void startTimer(double wait_time);
   void finishTimer();
 
-  void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg);
+  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
 
   std::string recording_file_name_;
   std::string default_mp3_path_;
 
-  ros::Publisher play_sound_pub_;
-  ros::Subscriber buttuon_sub_;
+  rclcpp::TimerBase::SharedPtr process_timer_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr play_sound_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
 
-  ros::Time start_time_;
+  rclcpp::Time start_time_;
   double wait_time_;
   bool is_wait_;
   int record_pid_;

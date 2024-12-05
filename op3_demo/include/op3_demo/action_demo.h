@@ -19,23 +19,22 @@
 #ifndef ACTION_DEMO_H_
 #define ACTION_DEMO_H_
 
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/Int32.h>
-#include <std_msgs/String.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/string.hpp>
 
 #include <boost/thread.hpp>
 #include <yaml-cpp/yaml.h>
 
 #include "op3_demo/op_demo.h"
-#include "robotis_controller_msgs/JointCtrlModule.h"
-#include "robotis_controller_msgs/SetModule.h"
-#include "op3_action_module_msgs/IsRunning.h"
+#include "robotis_controller_msgs/msg/joint_ctrl_module.hpp"
+#include "robotis_controller_msgs/srv/set_module.hpp"
+#include "op3_action_module_msgs/srv/is_running.hpp"
 
 namespace robotis_op
 {
 
-class ActionDemo : public OPDemo
+class ActionDemo : public OPDemo, public rclcpp::Node
 {
  public:
   ActionDemo();
@@ -88,19 +87,19 @@ class ActionDemo : public OPDemo
 
   void setModuleToDemo(const std::string &module_name);
   void callServiceSettingModule(const std::string &module_name);
-  void actionSetNameCallback(const std_msgs::String::ConstPtr& msg);
-  void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg);
-  void demoCommandCallback(const std_msgs::String::ConstPtr &msg);
+  void actionSetNameCallback(const std_msgs::msg::String::SharedPtr msg);
+  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
+  void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
 
-  ros::Publisher module_control_pub_;
-  ros::Publisher motion_index_pub_;
-  ros::Publisher play_sound_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr play_sound_pub_;
 
-  ros::Subscriber buttuon_sub_;
-  ros::Subscriber demo_command_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr demo_command_sub_;
 
-  ros::ServiceClient is_running_client_;
-  ros::ServiceClient set_joint_module_client_;
+  rclcpp::Client<op3_action_module_msgs::srv::IsRunning>::SharedPtr is_running_client_;
+  rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedPtr set_joint_module_client_;
 
   std::map<int, std::string> action_sound_table_;
   std::vector<int> play_list_;

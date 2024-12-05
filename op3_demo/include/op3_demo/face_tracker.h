@@ -20,20 +20,19 @@
 #define FACE_TRACKING_H_
 
 #include <math.h>
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/String.h>
-#include <std_msgs/Int32.h>
-#include <sensor_msgs/JointState.h>
-#include <geometry_msgs/Point.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <geometry_msgs/msg/point.hpp>
 #include <yaml-cpp/yaml.h>
 
 namespace robotis_op
 {
 
 // head tracking for looking the ball
-class FaceTracker
+class FaceTracker : public rclcpp::Node
 {
  public:
   enum TrackingStatus
@@ -41,7 +40,6 @@ class FaceTracker
     NotFound = -1,
     Waiting = 0,
     Found = 1,
-
   };
 
   FaceTracker();
@@ -53,7 +51,7 @@ class FaceTracker
   void stopTracking();
 
   void setUsingHeadScan(bool use_scan);
-  void setFacePosition(geometry_msgs::Point &face_position);
+  void setFacePosition(geometry_msgs::msg::Point &face_position);
   void goInit(double init_pan, double init_tile);
 
   double getPanOfFace()
@@ -70,26 +68,23 @@ class FaceTracker
   const double FOV_HEIGHT;
   const int NOT_FOUND_THRESHOLD;
 
-  void facePositionCallback(const geometry_msgs::Point::ConstPtr &msg);
-  void faceTrackerCommandCallback(const std_msgs::String::ConstPtr &msg);
+  void facePositionCallback(const geometry_msgs::msg::Point::SharedPtr msg);
+  void faceTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg);
   void publishHeadJoint(double pan, double tilt);
   void scanFace();
 
-  //ros node handle
-  ros::NodeHandle nh_;
-
   //image publisher/subscriber
-  ros::Publisher module_control_pub_;
-  ros::Publisher head_joint_offset_pub_;
-  ros::Publisher head_joint_pub_;
-  ros::Publisher head_scan_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_offset_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
 
-  ros::Subscriber face_position_sub_;
-  ros::Subscriber face_tracking_command_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr face_position_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr face_tracking_command_sub_;
 
   // (x, y) is the center position of the ball in image coordinates
   // z is the face size
-  geometry_msgs::Point face_position_;
+  geometry_msgs::msg::Point face_position_;
 
   bool use_head_scan_;
   int count_not_found_;

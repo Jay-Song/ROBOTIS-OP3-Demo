@@ -16,14 +16,15 @@
 
 /* Author: Kayman Jung */
 
-#include <ros/ros.h>
-#include <std_msgs/String.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include "op3_demo/soccer_demo.h"
 #include "op3_demo/action_demo.h"
 #include "op3_demo/vision_demo.h"
 #include "robotis_math/robotis_linear_algebra.h"
-#include "robotis_controller_msgs/SyncWriteItem.h"
+#include "robotis_controller_msgs/msg/sync_write_item.hpp"
 
 enum Demo_Status
 {
@@ -34,22 +35,22 @@ enum Demo_Status
   DemoCount = 4,
 };
 
-void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg);
+void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
 void goInitPose();
 void playSound(const std::string &path);
 void setLED(int led);
 bool checkManagerRunning(std::string& manager_name);
 void dxlTorqueChecker();
 
-void demoModeCommandCallback(const std_msgs::String::ConstPtr &msg);
+void demoModeCommandCallback(const std_msgs::msg::String::SharedPtr msg);
 
 const int SPIN_RATE = 30;
 const bool DEBUG_PRINT = false;
 
-ros::Publisher init_pose_pub;
-ros::Publisher play_sound_pub;
-ros::Publisher led_pub;
-ros::Publisher dxl_torque_pub;
+rclcpp::Publisher<std_msgs::msg::String>::SharedPtr init_pose_pub;
+rclcpp::Publisher<std_msgs::msg::String>::SharedPtr play_sound_pub;
+rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr led_pub;
+rclcpp::Publisher<std_msgs::msg::String>::SharedPtr dxl_torque_pub;
 
 std::string default_mp3_path = "";
 int current_status = Ready;
@@ -60,7 +61,7 @@ bool apply_desired = false;
 int main(int argc, char **argv)
 {
   //init ros
-  ros::init(argc, argv, "demo_node");
+  rclcpp::init(argc, argv);
 
   //create ros wrapper object
   robotis_op::OPDemo *current_demo = NULL;
@@ -68,34 +69,32 @@ int main(int argc, char **argv)
   robotis_op::ActionDemo *action_demo = new robotis_op::ActionDemo();
   robotis_op::VisionDemo *vision_demo = new robotis_op::VisionDemo();
 
-  ros::NodeHandle nh(ros::this_node::getName());
+  auto nh = rclcpp::Node::make_shared("demo_node");
 
-  init_pose_pub = nh.advertise<std_msgs::String>("/robotis/base/ini_pose", 0);
-  play_sound_pub = nh.advertise<std_msgs::String>("/play_sound_file", 0);
-  led_pub = nh.advertise<robotis_controller_msgs::SyncWriteItem>("/robotis/sync_write_item", 0);
-  dxl_torque_pub = nh.advertise<std_msgs::String>("/robotis/dxl_torque", 0);
-  ros::Subscriber buttuon_sub = nh.subscribe("/robotis/open_cr/button", 1, buttonHandlerCallback);
-  ros::Subscriber mode_command_sub = nh.subscribe("/robotis/mode_command", 1, demoModeCommandCallback);
+  init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 10);
+  play_sound_pub = nh->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
+  led_pub = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  dxl_torque_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
+  auto button_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
+  auto mode_command_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/mode_command", 10, demoModeCommandCallback);
 
-  default_mp3_path = ros::package::getPath("op3_demo") + "/data/mp3/";
+  default_mp3_path = ament_index_cpp::get_package_share_directory("op3_demo") + "/data/mp3/";
 
-  ros::start();
-
-  //set node loop rate
-  ros::Rate loop_rate(SPIN_RATE);
+  rclcpp::Rate loop_rate(SPIN_RATE);
 
   // wait for starting of manager
   std::string manager_name = "/op3_manager";
-  while (ros::ok())
+  while (rclcpp::ok())
   {
-    ros::Duration(1.0).sleep();
+    rclcpp::sleep_for(std::chrono::seconds(1));
 
     if (checkManagerRunning(manager_name) == true)
     {
       break;
-      ROS_INFO_COND(DEBUG_PRINT, "Succeed to connect");
+      if (DEBUG_PRINT)
+        RCLCPP_INFO(nh->get_logger(), "Succeed to connect");
     }
-    ROS_WARN("Waiting for op3 manager");
+    RCLCPP_WARN(nh->get_logger(), "Waiting for op3 manager");
   }
 
   // init procedure
@@ -104,7 +103,7 @@ int main(int argc, char **argv)
   setLED(0x01 | 0x02 | 0x04);
 
   //node loop
-  while (ros::ok())
+  while (rclcpp::ok())
   {
     // process
     if (apply_desired == true)
@@ -121,7 +120,8 @@ int main(int argc, char **argv)
 
           goInitPose();
 
-          ROS_INFO_COND(DEBUG_PRINT, "[Go to Demo READY!]");
+          if(DEBUG_PRINT)
+            RCLCPP_INFO(nh->get_logger(), "[Go to Demo READY!]");
           break;
         }
 
@@ -133,7 +133,8 @@ int main(int argc, char **argv)
           current_demo = soccer_demo;
           current_demo->setDemoEnable();
 
-          ROS_INFO_COND(DEBUG_PRINT, "[Start] Soccer Demo");
+          if(DEBUG_PRINT)
+            RCLCPP_INFO(nh->get_logger(), "[Start] Soccer Demo");
           break;
         }
 
@@ -144,7 +145,8 @@ int main(int argc, char **argv)
 
           current_demo = vision_demo;
           current_demo->setDemoEnable();
-          ROS_INFO_COND(DEBUG_PRINT, "[Start] Vision Demo");
+          if(DEBUG_PRINT)
+            RCLCPP_INFO(nh->get_logger(), "[Start] Vision Demo");
           break;
         }
         case ActionDemo:
@@ -154,7 +156,8 @@ int main(int argc, char **argv)
 
           current_demo = action_demo;
           current_demo->setDemoEnable();
-          ROS_INFO_COND(DEBUG_PRINT, "[Start] Action Demo");
+          if(DEBUG_PRINT)
+            RCLCPP_INFO(nh->get_logger(), "[Start] Action Demo");
           break;
         }
 
@@ -169,17 +172,18 @@ int main(int argc, char **argv)
     }
 
     //execute pending callbacks
-    ros::spinOnce();
+    rclcpp::spin_some(nh);
 
     //relax to fit output rate
     loop_rate.sleep();
   }
 
   //exit program
+  rclcpp::shutdown();
   return 0;
 }
 
-void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
+void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if(apply_desired == true)
     return;
@@ -233,7 +237,8 @@ void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
           break;
       }
 
-      ROS_INFO_COND(DEBUG_PRINT, "= Start Demo Mode : %d", desired_status);
+      if(DEBUG_PRINT)
+        RCLCPP_INFO(rclcpp::get_logger("demo_node"), "= Start Demo Mode : %d", desired_status);
     }
     else if (msg->data == "mode")
     {
@@ -263,62 +268,65 @@ void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
           break;
       }
 
-      ROS_INFO_COND(DEBUG_PRINT, "= Demo Mode : %d", desired_status);
+      if(DEBUG_PRINT)
+        RCLCPP_INFO(rclcpp::get_logger("demo_node"), "= Demo Mode : %d", desired_status);
     }
   }
 }
 
 void goInitPose()
 {
-  std_msgs::String init_msg;
+  std_msgs::msg::String init_msg;
   init_msg.data = "ini_pose";
 
-  init_pose_pub.publish(init_msg);
+  init_pose_pub->publish(init_msg);
 }
 
 void playSound(const std::string &path)
 {
-  std_msgs::String sound_msg;
+  std_msgs::msg::String sound_msg;
   sound_msg.data = path;
 
-  play_sound_pub.publish(sound_msg);
+  play_sound_pub->publish(sound_msg);
 }
 
 void setLED(int led)
 {
-  robotis_controller_msgs::SyncWriteItem syncwrite_msg;
+  robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;
   syncwrite_msg.item_name = "LED";
   syncwrite_msg.joint_name.push_back("open-cr");
   syncwrite_msg.value.push_back(led);
 
-  led_pub.publish(syncwrite_msg);
+  led_pub->publish(syncwrite_msg);
 }
 
 bool checkManagerRunning(std::string& manager_name)
 {
-  std::vector<std::string> node_list;
-  ros::master::getNodes(node_list);
+  auto node = rclcpp::Node::make_shared("demo_node");
+  auto node_list = node->get_node_graph_interface()->get_node_names();
 
-  for (unsigned int node_list_idx = 0; node_list_idx < node_list.size(); node_list_idx++)
+  for (const auto& node_name : node_list)
   {
-    if (node_list[node_list_idx] == manager_name)
+    if (node_name == manager_name)
       return true;
   }
 
-  ROS_ERROR("Can't find op3_manager");
+  RCLCPP_ERROR(node->get_logger(), "Can't find op3_manager");
   return false;
 }
 
 void dxlTorqueChecker()
 {
-  std_msgs::String check_msg;
+  std_msgs::msg::String check_msg;
   check_msg.data = "check";
 
-  dxl_torque_pub.publish(check_msg);
+  dxl_torque_pub->publish(check_msg);
 }
 
-void demoModeCommandCallback(const std_msgs::String::ConstPtr &msg)
+void demoModeCommandCallback(const std_msgs::msg::String::SharedPtr msg)
 {
+  auto node = rclcpp::Node::make_shared("demo_node");
+
   // In demo mode
   if (current_status != Ready)
   {
@@ -343,7 +351,8 @@ void demoModeCommandCallback(const std_msgs::String::ConstPtr &msg)
       // play sound
       dxlTorqueChecker();
       playSound(default_mp3_path + "Start soccer demonstration.mp3");
-      ROS_INFO_COND(DEBUG_PRINT, "= Start Demo Mode : %d", desired_status);
+      if (DEBUG_PRINT)
+        RCLCPP_INFO(node->get_logger(), "= Start Demo Mode : %d", desired_status);
     }
     else if(msg->data == "vision")
     {
@@ -353,7 +362,8 @@ void demoModeCommandCallback(const std_msgs::String::ConstPtr &msg)
       // play sound
       dxlTorqueChecker();
       playSound(default_mp3_path + "Start vision processing demonstration.mp3");
-      ROS_INFO_COND(DEBUG_PRINT, "= Start Demo Mode : %d", desired_status);
+      if (DEBUG_PRINT)
+        RCLCPP_INFO(node->get_logger(), "= Start Demo Mode : %d", desired_status);
     }
     else if(msg->data == "action")
     {
@@ -363,8 +373,8 @@ void demoModeCommandCallback(const std_msgs::String::ConstPtr &msg)
       // play sound
       dxlTorqueChecker();
       playSound(default_mp3_path + "Start motion demonstration.mp3");
-      ROS_INFO_COND(DEBUG_PRINT, "= Start Demo Mode : %d", desired_status);
+      if (DEBUG_PRINT)
+        RCLCPP_INFO(node->get_logger(), "= Start Demo Mode : %d", desired_status);
     }
   }
 }
-

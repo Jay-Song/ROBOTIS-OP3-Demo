@@ -19,6 +19,8 @@
 #ifndef OP_DEMO_H_
 #define OP_DEMO_H_
 
+#include "rclcpp/rclcpp.hpp"
+
 namespace robotis_op
 {
 
@@ -38,6 +40,7 @@ class OPDemo
   };
 
   OPDemo()
+  : enable_(false)
   {
   }
   virtual ~OPDemo()
@@ -46,9 +49,11 @@ class OPDemo
 
   virtual void setDemoEnable()
   {
+    enable_ = true;
   }
   virtual void setDemoDisable()
   {
+    enable_ = false;
   }
 
  protected:

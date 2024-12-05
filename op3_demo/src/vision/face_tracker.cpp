@@ -22,7 +22,7 @@ namespace robotis_op
 {
 
 FaceTracker::FaceTracker()
-    : nh_(ros::this_node::getName()),
+    : Node("face_tracker"),
       FOV_WIDTH(35.2 * M_PI / 180),
       FOV_HEIGHT(21.6 * M_PI / 180),
       NOT_FOUND_THRESHOLD(50),
@@ -30,12 +30,12 @@ FaceTracker::FaceTracker()
       count_not_found_(0),
       on_tracking_(false)
 {
-  head_joint_offset_pub_ = nh_.advertise<sensor_msgs::JointState>("/robotis/head_control/set_joint_states_offset", 0);
-  head_joint_pub_ = nh_.advertise<sensor_msgs::JointState>("/robotis/head_control/set_joint_states", 0);
-  head_scan_pub_ = nh_.advertise<std_msgs::String>("/robotis/head_control/scan_command", 0);
+  head_joint_offset_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states_offset", 10);
+  head_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states", 10);
+  head_scan_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/head_control/scan_command", 10);
 
-  face_position_sub_ = nh_.subscribe("/face_position", 1, &FaceTracker::facePositionCallback, this);
-  //face_tracking_command_sub_ = nh_.subscribe("/robotis/demo_command", 1, &FaceTracker::faceTrackerCommandCallback, this);
+  face_position_sub_ = this->create_subscription<geometry_msgs::msg::Point>("/face_position", 10, std::bind(&FaceTracker::facePositionCallback, this, std::placeholders::_1));
+  //face_tracking_command_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, std::bind(&FaceTracker::faceTrackerCommandCallback, this, std::placeholders::_1));
 }
 
 FaceTracker::~FaceTracker()
@@ -43,7 +43,7 @@ FaceTracker::~FaceTracker()
 
 }
 
-void FaceTracker::facePositionCallback(const geometry_msgs::Point::ConstPtr &msg)
+void FaceTracker::facePositionCallback(const geometry_msgs::msg::Point::SharedPtr msg)
 {
   if (msg->z < 0)
     return;
@@ -51,7 +51,7 @@ void FaceTracker::facePositionCallback(const geometry_msgs::Point::ConstPtr &msg
   face_position_ = *msg;
 }
 
-void FaceTracker::faceTrackerCommandCallback(const std_msgs::String::ConstPtr &msg)
+void FaceTracker::faceTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if (msg->data == "start")
   {
@@ -74,14 +74,14 @@ void FaceTracker::startTracking()
 {
   on_tracking_ = true;
 
-  ROS_INFO("Start Face tracking");
+  RCLCPP_INFO(this->get_logger(), "Start Face tracking");
 }
 
 void FaceTracker::stopTracking()
 {
   on_tracking_ = false;
 
-  ROS_INFO("Stop Face tracking");
+  RCLCPP_INFO(this->get_logger(), "Stop Face tracking");
 }
 
 void FaceTracker::setUsingHeadScan(bool use_scan)
@@ -89,7 +89,7 @@ void FaceTracker::setUsingHeadScan(bool use_scan)
   use_head_scan_ = use_scan;
 }
 
-void FaceTracker::setFacePosition(geometry_msgs::Point &face_position)
+void FaceTracker::setFacePosition(geometry_msgs::msg::Point &face_position)
 {
   if (face_position.z > 0)
   {
@@ -99,7 +99,7 @@ void FaceTracker::setFacePosition(geometry_msgs::Point &face_position)
 
 void FaceTracker::goInit(double init_pan, double init_tile)
 {
-  sensor_msgs::JointState head_angle_msg;
+  sensor_msgs::msg::JointState head_angle_msg;
 
   head_angle_msg.name.push_back("head_pan");
   head_angle_msg.name.push_back("head_tilt");
@@ -107,7 +107,7 @@ void FaceTracker::goInit(double init_pan, double init_tile)
   head_angle_msg.position.push_back(init_pan);
   head_angle_msg.position.push_back(init_tile);
 
-  head_joint_pub_.publish(head_angle_msg);
+  head_joint_pub_->publish(head_angle_msg);
 }
 
 int FaceTracker::processTracking()
@@ -178,7 +178,7 @@ void FaceTracker::publishHeadJoint(double pan, double tilt)
 
   dismissed_count_ = 0;
 
-  sensor_msgs::JointState head_angle_msg;
+  sensor_msgs::msg::JointState head_angle_msg;
 
   head_angle_msg.name.push_back("head_pan");
   head_angle_msg.name.push_back("head_tilt");
@@ -186,7 +186,7 @@ void FaceTracker::publishHeadJoint(double pan, double tilt)
   head_angle_msg.position.push_back(pan);
   head_angle_msg.position.push_back(tilt);
 
-  head_joint_offset_pub_.publish(head_angle_msg);
+  head_joint_offset_pub_->publish(head_angle_msg);
 }
 
 void FaceTracker::scanFace()
@@ -198,11 +198,11 @@ void FaceTracker::scanFace()
   // ...
 
   // send message to head control module
-  std_msgs::String scan_msg;
+  std_msgs::msg::String scan_msg;
   scan_msg.data = "scan";
 
-  head_scan_pub_.publish(scan_msg);
-  // ROS_INFO("Scan the ball");
+  head_scan_pub_->publish(scan_msg);
+  // RCLCPP_INFO(this->get_logger(), "Scan the ball");
 }
 
 }

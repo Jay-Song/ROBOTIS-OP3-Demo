@@ -16,24 +16,30 @@
 
 /* Author: Kayman Jung */
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include "op3_demo/button_test.h"
 
 namespace robotis_op
 {
 
 ButtonTest::ButtonTest()
-    : SPIN_RATE(30),
-      led_count_(0),
-      rgb_led_count_(0)
+  : Node("button_test"),
+    SPIN_RATE(30),
+    led_count_(0),
+    rgb_led_count_(0)
 {
   enable_ = false;
+  default_mp3_path_ = ament_index_cpp::get_package_share_directory("op3_demo") + "/data/mp3/test/";
 
-  ros::NodeHandle nh(ros::this_node::getName());
+  // Create publishers
+  rgb_led_pub_ = this->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  play_sound_pub_ = this->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
 
-  boost::thread queue_thread = boost::thread(boost::bind(&ButtonTest::callbackThread, this));
-  boost::thread process_thread = boost::thread(boost::bind(&ButtonTest::processThread, this));
+  // Create subscribers
+  button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&ButtonTest::buttonHandlerCallback, this, std::placeholders::_1));
 
-  default_mp3_path_ = ros::package::getPath("op3_demo") + "/data/mp3/test/";
+  // Use timer for loop rate
+  create_wall_timer(std::chrono::duration<double>(1.0 / SPIN_RATE), std::bind(&ButtonTest::process, this));
 }
 
 ButtonTest::~ButtonTest()
@@ -43,13 +49,13 @@ ButtonTest::~ButtonTest()
 void ButtonTest::setDemoEnable()
 {
   enable_ = true;
-
-  ROS_INFO("Start Button Test");
+  RCLCPP_INFO(this->get_logger(), "Start Button Test");
 }
 
 void ButtonTest::setDemoDisable()
 {
   enable_ = false;
+  RCLCPP_INFO(this->get_logger(), "Stop Button Test");
 }
 
 void ButtonTest::process()
@@ -57,42 +63,8 @@ void ButtonTest::process()
 
 }
 
-void ButtonTest::processThread()
-{
-  //set node loop rate
-  ros::Rate loop_rate(SPIN_RATE);
-
-  //node loop
-  while (ros::ok())
-  {
-    if (enable_ == true)
-      process();
-
-    //relax to fit output rate
-    loop_rate.sleep();
-  }
-}
-
-void ButtonTest::callbackThread()
-{
-  ros::NodeHandle nh(ros::this_node::getName());
-
-  // subscriber & publisher
-  rgb_led_pub_ = nh.advertise<robotis_controller_msgs::SyncWriteItem>("/robotis/sync_write_item", 0);
-  play_sound_pub_ = nh.advertise<std_msgs::String>("/play_sound_file", 0);
-
-  buttuon_sub_ = nh.subscribe("/robotis/open_cr/button", 1, &ButtonTest::buttonHandlerCallback, this);
-
-  while (nh.ok())
-  {
-    ros::spinOnce();
-
-    usleep(1 * 1000);
-  }
-}
-
 // button test
-void ButtonTest::buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
+void ButtonTest::buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if (enable_ == false)
     return;
@@ -134,30 +106,30 @@ void ButtonTest::setRGBLED(int blue, int green, int red)
 {
   int led_full_unit = 0x1F;
   int led_value = (blue & led_full_unit) << 10 | (green & led_full_unit) << 5 | (red & led_full_unit);
-  robotis_controller_msgs::SyncWriteItem syncwrite_msg;
+  robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;
   syncwrite_msg.item_name = "LED_RGB";
   syncwrite_msg.joint_name.push_back("open-cr");
   syncwrite_msg.value.push_back(led_value);
 
-  rgb_led_pub_.publish(syncwrite_msg);
+  rgb_led_pub_->publish(syncwrite_msg);
 }
 
 void ButtonTest::setLED(int led)
 {
-  robotis_controller_msgs::SyncWriteItem syncwrite_msg;
+  robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;
   syncwrite_msg.item_name = "LED";
   syncwrite_msg.joint_name.push_back("open-cr");
   syncwrite_msg.value.push_back(led);
 
-  rgb_led_pub_.publish(syncwrite_msg);
+  rgb_led_pub_->publish(syncwrite_msg);
 }
 
 void ButtonTest::playSound(const std::string &path)
 {
-  std_msgs::String sound_msg;
+  std_msgs::msg::String sound_msg;
   sound_msg.data = path;
 
-  play_sound_pub_.publish(sound_msg);
+  play_sound_pub_->publish(sound_msg);
 }
 
 } /* namespace robotis_op */

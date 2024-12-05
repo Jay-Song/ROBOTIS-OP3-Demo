@@ -16,13 +16,15 @@
 
 /* Author: Kayman Jung */
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include "op3_demo/soccer_demo.h"
 
 namespace robotis_op
 {
 
 SoccerDemo::SoccerDemo()
-  : FALL_FORWARD_LIMIT(60),
+  : Node("soccer_demo"),
+    FALL_FORWARD_LIMIT(60),
     FALL_BACK_LIMIT(-60),
     SPIN_RATE(30),
     DEBUG_PRINT(false),
@@ -41,17 +43,18 @@ SoccerDemo::SoccerDemo()
   //init ros
   enable_ = false;
 
-  ros::NodeHandle nh(ros::this_node::getName());
-
-  std::string default_path = ros::package::getPath("op3_gui_demo") + "/config/gui_config.yaml";
-  std::string path = nh.param<std::string>("demo_config", default_path);
+  std::string default_path = ament_index_cpp::get_package_share_directory("op3_gui_demo") + "/config/gui_config.yaml";
+  std::string path;
+  this->declare_parameter<std::string>("demo_config", default_path);
+  this->get_parameter_or<std::string>("demo_config", path);
   parseJointNameFromYaml(path);
 
-  boost::thread queue_thread = boost::thread(boost::bind(&SoccerDemo::callbackThread, this));
-  boost::thread process_thread = boost::thread(boost::bind(&SoccerDemo::processThread, this));
-  boost::thread tracking_thread = boost::thread(boost::bind(&SoccerDemo::trackingThread, this));
+  std::thread queue_thread(&SoccerDemo::callbackThread, this);
+  std::thread process_thread(&SoccerDemo::processThread, this);
+  std::thread tracking_thread(&SoccerDemo::trackingThread, this);
 
-  is_grass_ = nh.param<bool>("grass_demo", false);
+  this->declare_parameter<bool>("grass_demo", false);
+  this->get_parameter_or<bool>("grass_demo", is_grass_);
 }
 
 SoccerDemo::~SoccerDemo()
@@ -173,12 +176,12 @@ void SoccerDemo::processThread()
   bool result = false;
 
   //set node loop rate
-  ros::Rate loop_rate(SPIN_RATE);
+  rclcpp::Rate loop_rate(SPIN_RATE);
 
   ball_tracker_.startTracking();
 
   //node loop
-  while (ros::ok())
+  while (rclcpp::ok())
   {
     if (enable_ == true)
       process();
@@ -190,27 +193,27 @@ void SoccerDemo::processThread()
 
 void SoccerDemo::callbackThread()
 {
-  ros::NodeHandle nh(ros::this_node::getName());
+  rclcpp::Node::SharedPtr nh = rclcpp::Node::make_shared("soccer_demo");
 
   // subscriber & publisher
-  module_control_pub_ = nh.advertise<robotis_controller_msgs::JointCtrlModule>("/robotis/set_joint_ctrl_modules", 0);
-  motion_index_pub_ = nh.advertise<std_msgs::Int32>("/robotis/action/page_num", 0);
-  rgb_led_pub_ = nh.advertise<robotis_controller_msgs::SyncWriteItem>("/robotis/sync_write_item", 0);
+  module_control_pub_ = nh->create_publisher<robotis_controller_msgs::msg::JointCtrlModule>("/robotis/set_joint_ctrl_modules", 10);
+  motion_index_pub_ = nh->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
+  rgb_led_pub_ = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
 
-  buttuon_sub_ = nh.subscribe("/robotis/open_cr/button", 1, &SoccerDemo::buttonHandlerCallback, this);
-  demo_command_sub_ = nh.subscribe("/robotis/demo_command", 1, &SoccerDemo::demoCommandCallback, this);
-  imu_data_sub_ = nh.subscribe("/robotis/open_cr/imu", 1, &SoccerDemo::imuDataCallback, this);
+  button_sub_ = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&SoccerDemo::buttonHandlerCallback, this, std::placeholders::_1));
+  demo_command_sub_ = nh->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, std::bind(&SoccerDemo::demoCommandCallback, this, std::placeholders::_1));
+  imu_data_sub_ = nh->create_subscription<sensor_msgs::msg::Imu>("/robotis/open_cr/imu", 10, std::bind(&SoccerDemo::imuDataCallback, this, std::placeholders::_1));
 
-  is_running_client_ = nh.serviceClient<op3_action_module_msgs::IsRunning>("/robotis/action/is_running");
-  set_joint_module_client_ = nh.serviceClient<robotis_controller_msgs::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
+  is_running_client_ = nh->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
+  set_joint_module_client_ = nh->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
 
-  test_pub_ = nh.advertise<std_msgs::String>("/debug_text", 0);
+  test_pub_ = nh->create_publisher<std_msgs::msg::String>("/debug_text", 10);
 
-  while (nh.ok())
+  while (rclcpp::ok())
   {
-    ros::spinOnce();
+    rclcpp::spin_some(nh);
 
-    usleep(1000);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
@@ -218,12 +221,12 @@ void SoccerDemo::trackingThread()
 {
 
   //set node loop rate
-  ros::Rate loop_rate(SPIN_RATE);
+  rclcpp::Rate loop_rate(SPIN_RATE);
 
   ball_tracker_.startTracking();
 
   //node loop
-  while (ros::ok())
+  while (rclcpp::ok())
   {
 
     if(enable_ == true && on_tracking_ball_ == true)
@@ -260,7 +263,7 @@ void SoccerDemo::trackingThread()
 
 void SoccerDemo::setBodyModuleToDemo(const std::string &body_module, bool with_head_control)
 {
-  robotis_controller_msgs::JointCtrlModule control_msg;
+  robotis_controller_msgs::msg::JointCtrlModule control_msg;
 
   std::string head_module = "head_control_module";
   std::map<int, std::string>::iterator joint_iter;
@@ -298,7 +301,7 @@ void SoccerDemo::setModuleToDemo(const std::string &module_name)
   if(enable_ == false)
     return;
 
-  robotis_controller_msgs::JointCtrlModule control_msg;
+  robotis_controller_msgs::msg::JointCtrlModule control_msg;
   std::map<int, std::string>::iterator joint_iter;
 
   for (joint_iter = id_joint_table_.begin(); joint_iter != id_joint_table_.end(); ++joint_iter)
@@ -315,19 +318,22 @@ void SoccerDemo::setModuleToDemo(const std::string &module_name)
   std::cout << "enable module : " << module_name << std::endl;
 }
 
-void SoccerDemo::callServiceSettingModule(const robotis_controller_msgs::JointCtrlModule &modules)
+void SoccerDemo::callServiceSettingModule(const robotis_controller_msgs::msg::JointCtrlModule &modules)
 {
-  robotis_controller_msgs::SetJointModule set_joint_srv;
-  set_joint_srv.request.joint_name = modules.joint_name;
-  set_joint_srv.request.module_name = modules.module_name;
+  auto request = std::make_shared<robotis_controller_msgs::srv::SetJointModule::Request>();
+  request->joint_name = modules.joint_name;
+  request->module_name = modules.module_name;
 
-  if (set_joint_module_client_.call(set_joint_srv) == false)
-  {
-    ROS_ERROR("Failed to set module");
+  if (!set_joint_module_client_->wait_for_service(std::chrono::seconds(1))) {
+    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Service not available");
     return;
   }
 
-  return ;
+  auto result = set_joint_module_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to call service");
+    return;
+  }
 }
 
 void SoccerDemo::parseJointNameFromYaml(const std::string &path)
@@ -339,7 +345,7 @@ void SoccerDemo::parseJointNameFromYaml(const std::string &path)
     doc = YAML::LoadFile(path.c_str());
   } catch (const std::exception& e)
   {
-    ROS_ERROR("Fail to load id_joint table yaml.");
+    RCLCPP_ERROR(this->get_logger(), "Fail to load id_joint table yaml.");
     return;
   }
 
@@ -402,7 +408,7 @@ bool SoccerDemo::isHeadJoint(const int &id)
   return false;
 }
 
-void SoccerDemo::buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
+void SoccerDemo::buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if (enable_ == false)
     return;
@@ -416,7 +422,7 @@ void SoccerDemo::buttonHandlerCallback(const std_msgs::String::ConstPtr& msg)
   }
 }
 
-void SoccerDemo::demoCommandCallback(const std_msgs::String::ConstPtr &msg)
+void SoccerDemo::demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if (enable_ == false)
     return;
@@ -435,7 +441,7 @@ void SoccerDemo::demoCommandCallback(const std_msgs::String::ConstPtr &msg)
 }
 
 // check fallen states
-void SoccerDemo::imuDataCallback(const sensor_msgs::Imu::ConstPtr& msg)
+void SoccerDemo::imuDataCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   if (enable_ == false)
     return;
@@ -447,7 +453,8 @@ void SoccerDemo::imuDataCallback(const sensor_msgs::Imu::ConstPtr& msg)
   Eigen::MatrixXd rpy_orientation = robotis_framework::convertQuaternionToRPY(orientation);
   rpy_orientation *= (180 / M_PI);
 
-  ROS_INFO_COND(DEBUG_PRINT, "Roll : %3.2f, Pitch : %2.2f", rpy_orientation.coeff(0, 0), rpy_orientation.coeff(1, 0));
+  if(DEBUG_PRINT)
+    RCLCPP_INFO(this->get_logger(), "Roll : %3.2f, Pitch : %2.2f", rpy_orientation.coeff(0, 0), rpy_orientation.coeff(1, 0));
 
   double pitch = rpy_orientation.coeff(1, 0);
 
@@ -473,7 +480,7 @@ void SoccerDemo::startSoccerMode()
 
   setBodyModuleToDemo("walking_module");
 
-  ROS_INFO("Start Soccer Demo");
+  RCLCPP_INFO(this->get_logger(), "Start Soccer Demo");
   on_following_ball_ = true;
   on_tracking_ball_ = true;
   start_following_ = true;
@@ -481,7 +488,7 @@ void SoccerDemo::startSoccerMode()
 
 void SoccerDemo::stopSoccerMode()
 {
-  ROS_INFO("Stop Soccer Demo");
+  RCLCPP_INFO(this->get_logger(), "Stop Soccer Demo");
   on_following_ball_ = false;
   on_tracking_ball_ = false;
   stop_following_ = true;
@@ -625,51 +632,44 @@ bool SoccerDemo::handleFallen(int fallen_status)
 
 void SoccerDemo::playMotion(int motion_index)
 {
-  std_msgs::Int32 motion_msg;
+  std_msgs::msg::Int32 motion_msg;
   motion_msg.data = motion_index;
 
-  motion_index_pub_.publish(motion_msg);
+  motion_index_pub_->publish(motion_msg);
 }
 
 void SoccerDemo::setRGBLED(int blue, int green, int red)
 {
   int led_full_unit = 0x1F;
   int led_value = (blue & led_full_unit) << 10 | (green & led_full_unit) << 5 | (red & led_full_unit);
-  robotis_controller_msgs::SyncWriteItem syncwrite_msg;
+  robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;
   syncwrite_msg.item_name = "LED_RGB";
   syncwrite_msg.joint_name.push_back("open-cr");
   syncwrite_msg.value.push_back(led_value);
 
-  rgb_led_pub_.publish(syncwrite_msg);
+  rgb_led_pub_->publish(syncwrite_msg);
 }
 
 // check running of action
 bool SoccerDemo::isActionRunning()
 {
-  op3_action_module_msgs::IsRunning is_running_srv;
+  auto request = std::make_shared<op3_action_module_msgs::srv::IsRunning::Request>();
 
-  if (is_running_client_.call(is_running_srv) == false)
-  {
-    ROS_ERROR("Failed to get action status");
+  auto result = is_running_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to get action status");
     return true;
   }
-  else
-  {
-    if (is_running_srv.response.is_running == true)
-    {
-      return true;
-    }
-  }
 
-  return false;
+  return result.get()->is_running;
 }
 
 void SoccerDemo::sendDebugTopic(const std::string &msgs)
 {
-  std_msgs::String debug_msg;
+  std_msgs::msg::String debug_msg;
   debug_msg.data = msgs;
 
-  test_pub_.publish(debug_msg);
+  test_pub_->publish(debug_msg);
 }
 
 }

@@ -21,24 +21,23 @@
 
 #include <math.h>
 #include <numeric>
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/String.h>
-#include <std_msgs/Int32.h>
-#include <sensor_msgs/JointState.h>
-#include <geometry_msgs/Point.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <geometry_msgs/msg/point.hpp>
 #include <yaml-cpp/yaml.h>
 
-#include "robotis_controller_msgs/JointCtrlModule.h"
-#include "op3_ball_detector/CircleSetStamped.h"
-#include "op3_walking_module_msgs/WalkingParam.h"
-#include "op3_walking_module_msgs/GetWalkingParam.h"
+#include "robotis_controller_msgs/msg/joint_ctrl_module.hpp"
+#include "op3_ball_detector_msgs/msg/circle_set_stamped.hpp"
+#include "op3_walking_module_msgs/msg/walking_param.hpp"
+#include "op3_walking_module_msgs/srv/get_walking_param.hpp"
 
 namespace robotis_op
 {
 
 // following the ball using walking
-class BallFollower
+class BallFollower : public rclcpp::Node
 {
  public:
   enum
@@ -90,34 +89,31 @@ class BallFollower
   const double SPOT_RL_OFFSET;
   const double SPOT_ANGLE_OFFSET;
 
-  void currentJointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg);
+  void currentJointStatesCallback(const sensor_msgs::msg::JointState::SharedPtr msg);
   void setWalkingCommand(const std::string &command);
   void setWalkingParam(double x_move, double y_move, double rotation_angle, bool balance = true);
   bool getWalkingParam();
   void calcFootstep(double target_distance, double target_angle, double delta_time,
                     double& fb_move, double& rl_angle);
 
-  //ros node handle
-  ros::NodeHandle nh_;
-
   //image publisher/subscriber
-  ros::Publisher module_control_pub_;
-  ros::Publisher head_joint_pub_;
-  ros::Publisher head_scan_pub_;
-  ros::Publisher set_walking_command_pub_;
-  ros::Publisher set_walking_param_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr set_walking_command_pub_;
+  rclcpp::Publisher<op3_walking_module_msgs::msg::WalkingParam>::SharedPtr set_walking_param_pub_;
 
-  ros::Publisher motion_index_pub_;
-  ros::ServiceClient get_walking_param_client_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  rclcpp::Client<op3_walking_module_msgs::srv::GetWalkingParam>::SharedPtr get_walking_param_client_;
 
-  ros::Subscriber ball_position_sub_;
-  ros::Subscriber ball_tracking_command_sub_;
-  ros::Subscriber current_joint_states_sub_;
+  rclcpp::Subscription<op3_ball_detector_msgs::msg::CircleSetStamped>::SharedPtr ball_position_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ball_tracking_command_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr current_joint_states_sub_;
 
   // (x, y) is the center position of the ball in image coordinates
   // z is the ball radius
-  geometry_msgs::Point ball_position_;
-  op3_walking_module_msgs::WalkingParam current_walking_param_;
+  geometry_msgs::msg::Point ball_position_;
+  op3_walking_module_msgs::msg::WalkingParam current_walking_param_;
 
   int count_not_found_;
   int count_to_kick_;
@@ -127,7 +123,7 @@ class BallFollower
   double current_x_move_, current_r_angle_;
   int kick_motion_index_;
   double hip_pitch_offset_;
-  ros::Time prev_time_;
+  rclcpp::Time prev_time_;
 
   double curr_period_time_;
   double accum_period_time_;

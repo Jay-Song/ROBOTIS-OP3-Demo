@@ -19,25 +19,24 @@
 #ifndef BALL_TRACKING_H_
 #define BALL_TRACKING_H_
 
-#include <math.h>
-#include <ros/ros.h>
-#include <ros/package.h>
-#include <std_msgs/String.h>
-#include <std_msgs/Int32.h>
-#include <sensor_msgs/JointState.h>
-#include <geometry_msgs/Point.h>
+#include <cmath>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <geometry_msgs/msg/point.hpp>
 #include <yaml-cpp/yaml.h>
 
-#include "robotis_controller_msgs/JointCtrlModule.h"
-#include "op3_ball_detector/CircleSetStamped.h"
-#include "op3_walking_module_msgs/WalkingParam.h"
-#include "op3_walking_module_msgs/GetWalkingParam.h"
+#include "robotis_controller_msgs/msg/joint_ctrl_module.hpp"
+#include "op3_ball_detector_msgs/msg/circle_set_stamped.hpp"
+#include "op3_walking_module_msgs/msg/walking_param.hpp"
+#include "op3_walking_module_msgs/srv/get_walking_param.hpp"
 
 namespace robotis_op
 {
 
 // head tracking for looking the ball
-class BallTracker
+class BallTracker : public rclcpp::Node
 {
 public:
   enum TrackingStatus
@@ -45,8 +44,8 @@ public:
     NotFound = -1,
     Waiting = 0,
     Found = 1,
-
   };
+
   BallTracker();
   ~BallTracker();
 
@@ -80,30 +79,27 @@ protected:
   const int WAITING_THRESHOLD;
   const bool DEBUG_PRINT;
 
-  void ballPositionCallback(const op3_ball_detector::CircleSetStamped::ConstPtr &msg);
-  void ballTrackerCommandCallback(const std_msgs::String::ConstPtr &msg);
+  void ballPositionCallback(const op3_ball_detector_msgs::msg::CircleSetStamped::SharedPtr msg);
+  void ballTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg);
   void publishHeadJoint(double pan, double tilt);
   void scanBall();
 
-  //ros node handle
-  ros::NodeHandle nh_;
-
   //image publisher/subscriber
-  ros::Publisher module_control_pub_;
-  ros::Publisher head_joint_offset_pub_;
-  ros::Publisher head_joint_pub_;
-  ros::Publisher head_scan_pub_;
+  rclcpp::Publisher<robotis_controller_msgs::msg::JointCtrlModule>::SharedPtr module_control_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_offset_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
 
-  //  ros::Publisher error_pub_;
+  //  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr error_pub_;
 
-  ros::Publisher motion_index_pub_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
 
-  ros::Subscriber ball_position_sub_;
-  ros::Subscriber ball_tracking_command_sub_;
+  rclcpp::Subscription<op3_ball_detector_msgs::msg::CircleSetStamped>::SharedPtr ball_position_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ball_tracking_command_sub_;
 
   // (x, y) is the center position of the ball in image coordinates
   // z is the ball radius
-  geometry_msgs::Point ball_position_;
+  geometry_msgs::msg::Point ball_position_;
 
   int tracking_status_;
   bool use_head_scan_;
@@ -112,9 +108,8 @@ protected:
   double current_ball_pan_, current_ball_tilt_;
   double current_ball_bottom_;
   double x_error_sum_, y_error_sum_;
-  ros::Time prev_time_;
+  rclcpp::Time prev_time_;
   double p_gain_, d_gain_, i_gain_;
-
 };
 }
 

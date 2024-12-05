@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>op3_demo</name>
   <version>0.1.0</version>
   <description>
     OP3 default demo
-    It includes three demontrations(soccer demo, vision demo, action script demo)
+    It includes three demonstrations (soccer demo, vision demo, action script demo)
   </description>
   <license>Apache 2.0</license>
   <author email="kmjung@robotis.com">Kayman</author>
@@ -13,18 +13,18 @@
   <url type="emanual">http://emanual.robotis.com/docs/en/platform/op3/introduction/</url>
   <url type="repository">https://github.com/ROBOTIS-GIT/ROBOTIS-OP3-Demo</url>
   <url type="bugtracker">https://github.com/ROBOTIS-GIT/ROBOTIS-OP3-Demo/issues</url>
-  <buildtool_depend>catkin</buildtool_depend>
-  <depend>roscpp</depend>
-  <depend>roslib</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>robotis_controller_msgs</depend>
   <depend>op3_walking_module_msgs</depend>
   <depend>op3_action_module_msgs</depend>
-  <depend>cmake_modules</depend>
+  <depend>ament_index_cpp</depend>
   <depend>robotis_math</depend>
   <depend>op3_ball_detector</depend>
+  <depend>op3_ball_detector_msgs</depend>
   <depend>boost</depend>
   <depend>eigen</depend>
   <depend>yaml-cpp</depend>
@@ -33,4 +33,7 @@
   <exec_depend>op3_web_setting_tool</exec_depend>
   <exec_depend>ros_madplay_player</exec_depend>
   <!-- <exec_depend>face_detection</exec_depend> -->
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

@@ -19,17 +19,17 @@
 #ifndef SOCCER_DEMO_H
 #define SOCCER_DEMO_H
 
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <sensor_msgs/Imu.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <boost/thread.hpp>
 #include <eigen3/Eigen/Eigen>
 #include <yaml-cpp/yaml.h>
 
-#include "op3_action_module_msgs/IsRunning.h"
-#include "robotis_controller_msgs/SyncWriteItem.h"
-#include "robotis_controller_msgs/JointCtrlModule.h"
-#include "robotis_controller_msgs/SetJointModule.h"
+#include "op3_action_module_msgs/srv/is_running.hpp"
+#include "robotis_controller_msgs/msg/sync_write_item.hpp"
+#include "robotis_controller_msgs/msg/joint_ctrl_module.hpp"
+#include "robotis_controller_msgs/srv/set_joint_module.hpp"
 
 #include "op3_demo/op_demo.h"
 #include "op3_demo/ball_tracker.h"
@@ -39,7 +39,7 @@
 namespace robotis_op
 {
 
-class SoccerDemo : public OPDemo
+class SoccerDemo : public OPDemo, public rclcpp::Node
 {
  public:
   enum Stand_Status
@@ -76,15 +76,15 @@ class SoccerDemo : public OPDemo
 
   void setBodyModuleToDemo(const std::string &body_module, bool with_head_control = true);
   void setModuleToDemo(const std::string &module_name);
-  void callServiceSettingModule(const robotis_controller_msgs::JointCtrlModule &modules);
+  void callServiceSettingModule(const robotis_controller_msgs::msg::JointCtrlModule &modules);
   void parseJointNameFromYaml(const std::string &path);
   bool getJointNameFromID(const int &id, std::string &joint_name);
   bool getIDFromJointName(const std::string &joint_name, int &id);
   int getJointCount();
   bool isHeadJoint(const int &id);
-  void buttonHandlerCallback(const std_msgs::String::ConstPtr& msg);
-  void demoCommandCallback(const std_msgs::String::ConstPtr& msg);
-  void imuDataCallback(const sensor_msgs::Imu::ConstPtr& msg);
+  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
+  void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+  void imuDataCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   void startSoccerMode();
   void stopSoccerMode();
@@ -103,17 +103,17 @@ class SoccerDemo : public OPDemo
   BallTracker ball_tracker_;
   BallFollower ball_follower_;
 
-  ros::Publisher module_control_pub_;
-  ros::Publisher motion_index_pub_;
-  ros::Publisher rgb_led_pub_;
-  ros::Subscriber buttuon_sub_;
-  ros::Subscriber demo_command_sub_;
-  ros::Subscriber imu_data_sub_;
+  rclcpp::Publisher<robotis_controller_msgs::msg::JointCtrlModule>::SharedPtr module_control_pub_;
+  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr rgb_led_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr demo_command_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_data_sub_;
 
-  ros::Publisher test_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr test_pub_;
 
-  ros::ServiceClient is_running_client_;
-  ros::ServiceClient set_joint_module_client_;
+  rclcpp::Client<op3_action_module_msgs::srv::IsRunning>::SharedPtr is_running_client_;
+  rclcpp::Client<robotis_controller_msgs::srv::SetJointModule>::SharedPtr set_joint_module_client_;
 
   std::map<int, std::string> id_joint_table_;
   std::map<std::string, int> joint_id_table_;

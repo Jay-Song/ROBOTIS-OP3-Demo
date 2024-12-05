@@ -22,7 +22,7 @@ namespace robotis_op
 {
 
 BallTracker::BallTracker()
-  : nh_(ros::this_node::getName()),
+  : Node("ball_tracker"),
     FOV_WIDTH(35.2 * M_PI / 180),
     FOV_HEIGHT(21.6 * M_PI / 180),
     NOT_FOUND_THRESHOLD(50),
@@ -38,21 +38,23 @@ BallTracker::BallTracker()
     tracking_status_(NotFound),
     DEBUG_PRINT(false)
 {
-  ros::NodeHandle param_nh("~");
-  p_gain_ = param_nh.param("p_gain", 0.4);
-  i_gain_ = param_nh.param("i_gain", 0.0);
-  d_gain_ = param_nh.param("d_gain", 0.0);
+  this->declare_parameter("p_gain", 0.4);
+  this->declare_parameter("i_gain", 0.0);
+  this->declare_parameter("d_gain", 0.0);
 
-  ROS_INFO_STREAM("Ball tracking Gain : " << p_gain_ << ", " << i_gain_ << ", " << d_gain_);
+  this->get_parameter("p_gain", p_gain_);
+  this->get_parameter("i_gain", i_gain_);
+  this->get_parameter("d_gain", d_gain_);
 
-  head_joint_offset_pub_ = nh_.advertise<sensor_msgs::JointState>("/robotis/head_control/set_joint_states_offset", 0);
-  head_joint_pub_ = nh_.advertise<sensor_msgs::JointState>("/robotis/head_control/set_joint_states", 0);
-  head_scan_pub_ = nh_.advertise<std_msgs::String>("/robotis/head_control/scan_command", 0);
-  //  error_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("/ball_tracker/errors", 0);
+  RCLCPP_INFO(this->get_logger(), "Ball tracking Gain : %f, %f, %f", p_gain_, i_gain_, d_gain_);
 
-  ball_position_sub_ = nh_.subscribe("/ball_detector_node/circle_set", 1, &BallTracker::ballPositionCallback, this);
-  ball_tracking_command_sub_ = nh_.subscribe("/ball_tracker/command", 1, &BallTracker::ballTrackerCommandCallback,
-                                             this);
+  head_joint_offset_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states_offset", 10);
+  head_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states", 10);
+  head_scan_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/head_control/scan_command", 10);
+  //  error_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/ball_tracker/errors", 10);
+
+  ball_position_sub_ = this->create_subscription<op3_ball_detector_msgs::msg::CircleSetStamped>("/ball_detector_node/circle_set", 10, std::bind(&BallTracker::ballPositionCallback, this, std::placeholders::_1));
+  ball_tracking_command_sub_ = this->create_subscription<std_msgs::msg::String>("/ball_tracker/command", 10, std::bind(&BallTracker::ballTrackerCommandCallback, this, std::placeholders::_1));
 }
 
 BallTracker::~BallTracker()
@@ -60,7 +62,7 @@ BallTracker::~BallTracker()
 
 }
 
-void BallTracker::ballPositionCallback(const op3_ball_detector::CircleSetStamped::ConstPtr &msg)
+void BallTracker::ballPositionCallback(const op3_ball_detector_msgs::msg::CircleSetStamped::SharedPtr msg)
 {
   for (int idx = 0; idx < msg->circles.size(); idx++)
   {
@@ -71,7 +73,7 @@ void BallTracker::ballPositionCallback(const op3_ball_detector::CircleSetStamped
   }
 }
 
-void BallTracker::ballTrackerCommandCallback(const std_msgs::String::ConstPtr &msg)
+void BallTracker::ballTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if (msg->data == "start")
   {
@@ -93,7 +95,8 @@ void BallTracker::ballTrackerCommandCallback(const std_msgs::String::ConstPtr &m
 void BallTracker::startTracking()
 {
   on_tracking_ = true;
-  ROS_INFO_COND(DEBUG_PRINT, "Start Ball tracking");
+  if (DEBUG_PRINT)
+    RCLCPP_INFO(this->get_logger(), "Start Ball tracking");
 }
 
 void BallTracker::stopTracking()
@@ -101,7 +104,8 @@ void BallTracker::stopTracking()
   goInit();
 
   on_tracking_ = false;
-  ROS_INFO_COND(DEBUG_PRINT, "Stop Ball tracking");
+  if (DEBUG_PRINT)
+    RCLCPP_INFO(this->get_logger(), "Stop Ball tracking");
 
   current_ball_pan_ = 0;
   current_ball_tilt_ = 0;
@@ -183,13 +187,16 @@ int BallTracker::processTracking()
     break;
   }
 
-  ROS_INFO_STREAM_COND(DEBUG_PRINT, "--------------------------------------------------------------");
-  ROS_INFO_STREAM_COND(DEBUG_PRINT, "Ball position : " << ball_position_.x << " | " << ball_position_.y);
-  ROS_INFO_STREAM_COND(DEBUG_PRINT, "Target angle : " << (x_error * 180 / M_PI) << " | " << (y_error * 180 / M_PI));
+  if (DEBUG_PRINT)
+  {
+    RCLCPP_INFO(this->get_logger(), "--------------------------------------------------------------");
+    RCLCPP_INFO(this->get_logger(), "Ball position : %f | %f", ball_position_.x, ball_position_.y);
+    RCLCPP_INFO(this->get_logger(), "Target angle : %f | %f", (x_error * 180 / M_PI), (y_error * 180 / M_PI));
+  }
 
-  ros::Time curr_time = ros::Time::now();
-  ros::Duration dur = curr_time - prev_time_;
-  double delta_time = dur.nsec * 0.000000001 + dur.sec;
+  rclcpp::Time curr_time = rclcpp::Clock().now();
+  rclcpp::Duration dur = curr_time - prev_time_;
+  double delta_time = dur.seconds();
   prev_time_ = curr_time;
 
   double x_error_diff = (x_error - current_ball_pan_) / delta_time;
@@ -199,7 +206,7 @@ int BallTracker::processTracking()
   double x_error_target = x_error * p_gain_ + x_error_diff * d_gain_ + x_error_sum_ * i_gain_;
   double y_error_target = y_error * p_gain_ + y_error_diff * d_gain_ + y_error_sum_ * i_gain_;
 
-  //  std_msgs::Float64MultiArray x_error_msg;
+  //  std_msgs::msg::Float64MultiArray x_error_msg;
   //  x_error_msg.data.push_back(x_error);
   //  x_error_msg.data.push_back(x_error_diff);
   //  x_error_msg.data.push_back(x_error_sum_);
@@ -209,17 +216,14 @@ int BallTracker::processTracking()
   //  x_error_msg.data.push_back(x_error_target);
   //  error_pub_.publish(x_error_msg);
 
-  ROS_INFO_STREAM_COND(DEBUG_PRINT, "------------------------  " << tracking_status << "  --------------------------------------");
-  ROS_INFO_STREAM_COND(DEBUG_PRINT, "error         : " << (x_error * 180 / M_PI) << " | " << (y_error * 180 / M_PI));
-  ROS_INFO_STREAM_COND(
-        DEBUG_PRINT,
-        "error_diff    : " << (x_error_diff * 180 / M_PI) << " | " << (y_error_diff * 180 / M_PI) << " | " << delta_time);
-  ROS_INFO_STREAM_COND(
-        DEBUG_PRINT,
-        "error_sum    : " << (x_error_sum_ * 180 / M_PI) << " | " << (y_error_sum_ * 180 / M_PI));
-  ROS_INFO_STREAM_COND(
-        DEBUG_PRINT,
-        "error_target  : " << (x_error_target * 180 / M_PI) << " | " << (y_error_target * 180 / M_PI) << " | P : " << p_gain_ << " | D : " << d_gain_ << " | time : " << delta_time);
+  if (DEBUG_PRINT)
+  {
+    RCLCPP_INFO(this->get_logger(), "------------------------  %d  --------------------------------------", tracking_status);
+    RCLCPP_INFO(this->get_logger(), "error         : %f | %f", (x_error * 180 / M_PI), (y_error * 180 / M_PI));
+    RCLCPP_INFO(this->get_logger(), "error_diff    : %f | %f | %f", (x_error_diff * 180 / M_PI), (y_error_diff * 180 / M_PI), delta_time);
+    RCLCPP_INFO(this->get_logger(), "error_sum    : %f | %f", (x_error_sum_ * 180 / M_PI), (y_error_sum_ * 180 / M_PI));
+    RCLCPP_INFO(this->get_logger(), "error_target  : %f | %f | P : %f | D : %f | time : %f", (x_error_target * 180 / M_PI), (y_error_target * 180 / M_PI), p_gain_, d_gain_, delta_time);
+  }
 
   // move head joint
   publishHeadJoint(x_error_target, y_error_target);
@@ -241,7 +245,7 @@ void BallTracker::publishHeadJoint(double pan, double tilt)
   if (fabs(pan) < min_angle && fabs(tilt) < min_angle)
     return;
 
-  sensor_msgs::JointState head_angle_msg;
+  sensor_msgs::msg::JointState head_angle_msg;
 
   head_angle_msg.name.push_back("head_pan");
   head_angle_msg.name.push_back("head_tilt");
@@ -249,12 +253,12 @@ void BallTracker::publishHeadJoint(double pan, double tilt)
   head_angle_msg.position.push_back(pan);
   head_angle_msg.position.push_back(tilt);
 
-  head_joint_offset_pub_.publish(head_angle_msg);
+  head_joint_offset_pub_->publish(head_angle_msg);
 }
 
 void BallTracker::goInit()
 {
-  sensor_msgs::JointState head_angle_msg;
+  sensor_msgs::msg::JointState head_angle_msg;
 
   head_angle_msg.name.push_back("head_pan");
   head_angle_msg.name.push_back("head_tilt");
@@ -262,7 +266,7 @@ void BallTracker::goInit()
   head_angle_msg.position.push_back(0.0);
   head_angle_msg.position.push_back(0.0);
 
-  head_joint_pub_.publish(head_angle_msg);
+  head_joint_pub_->publish(head_angle_msg);
 }
 
 void BallTracker::scanBall()
@@ -274,10 +278,10 @@ void BallTracker::scanBall()
   // ...
 
   // send message to head control module
-  std_msgs::String scan_msg;
+  std_msgs::msg::String scan_msg;
   scan_msg.data = "scan";
 
-  head_scan_pub_.publish(scan_msg);
+  head_scan_pub_->publish(scan_msg);
 }
 
 }
