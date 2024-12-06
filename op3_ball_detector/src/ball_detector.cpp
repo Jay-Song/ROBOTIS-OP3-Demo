@@ -57,11 +57,11 @@ BallDetector::BallDetector()
     init_param_(false),
     not_found_count_(0)
 {
-  this->declare_parameter("yaml_path", "");
-  has_path_ = this->get_parameter("yaml_path", param_path_);
+  // this->declare_parameter("yaml_path", "");
+  // has_path_ = this->get_parameter("yaml_path", param_path_);
 
-  if (has_path_)
-    std::cout << "Path : " << param_path_ << std::endl;
+  // if (has_path_)
+  //   std::cout << "Path : " << param_path_ << std::endl;
 
   //detector config struct
   DetectorConfig detect_config;
@@ -614,28 +614,30 @@ void BallDetector::printConfig()
   if (init_param_ == false)
     return;
 
-  std::cout << "Detetctor Configuration:" << std::endl << "    gaussian_blur_size: "
-            << params_config_.gaussian_blur_size << std::endl << "    gaussian_blur_sigma: "
-            << params_config_.gaussian_blur_sigma << std::endl << "    canny_edge_th: " << params_config_.canny_edge_th
-            << std::endl << "    hough_accum_resolution: " << params_config_.hough_accum_resolution << std::endl
-            << "    min_circle_dist: " << params_config_.min_circle_dist << std::endl << "    hough_accum_th: "
-            << params_config_.hough_accum_th << std::endl << "    min_radius: " << params_config_.min_radius
-            << std::endl << "    max_radius: " << params_config_.max_radius << std::endl << "    filter_h_min: "
-            << params_config_.filter_threshold.h_min << std::endl << "    filter_h_max: "
-            << params_config_.filter_threshold.h_max << std::endl << "    filter_s_min: "
-            << params_config_.filter_threshold.s_min << std::endl << "    filter_s_max: "
-            << params_config_.filter_threshold.s_max << std::endl << "    filter_v_min: "
-            << params_config_.filter_threshold.v_min << std::endl << "    filter_v_max: "
-            << params_config_.filter_threshold.v_max << std::endl << "    use_second_filter: "
-            << params_config_.use_second_filter << std::endl << "    filter2_h_min: "
-            << params_config_.filter2_threshold.h_min << std::endl << "    filter2_h_max: "
-            << params_config_.filter2_threshold.h_max << std::endl << "    filter2_s_min: "
-            << params_config_.filter2_threshold.s_min << std::endl << "    filter2_s_max: "
-            << params_config_.filter2_threshold.s_max << std::endl << "    filter2_v_min: "
-            << params_config_.filter2_threshold.v_min << std::endl << "    filter2_v_max: "
-            << params_config_.filter2_threshold.v_max << std::endl << "    ellipse_size: "
-            << params_config_.ellipse_size << std::endl << "    filter_image_to_debug: " << params_config_.debug
-            << std::endl << std::endl;
+  std::cout << "Detetctor Configuration:" << std::endl 
+            << "    gaussian_blur_size: "     << params_config_.gaussian_blur_size << std::endl 
+            << "    gaussian_blur_sigma: "    << params_config_.gaussian_blur_sigma << std::endl 
+            << "    canny_edge_th: "          << params_config_.canny_edge_th << std::endl 
+            << "    hough_accum_resolution: " << params_config_.hough_accum_resolution << std::endl
+            << "    min_circle_dist: "        << params_config_.min_circle_dist << std::endl 
+            << "    hough_accum_th: "         << params_config_.hough_accum_th << std::endl 
+            << "    min_radius: "             << params_config_.min_radius << std::endl 
+            << "    max_radius: "             << params_config_.max_radius << std::endl 
+            << "    filter_h_min: "           << params_config_.filter_threshold.h_min << std::endl 
+            << "    filter_h_max: "           << params_config_.filter_threshold.h_max << std::endl 
+            << "    filter_s_min: "           << params_config_.filter_threshold.s_min << std::endl 
+            << "    filter_s_max: "           << params_config_.filter_threshold.s_max << std::endl 
+            << "    filter_v_min: "           << params_config_.filter_threshold.v_min << std::endl 
+            << "    filter_v_max: "           << params_config_.filter_threshold.v_max << std::endl 
+            << "    use_second_filter: "      << params_config_.use_second_filter << std::endl 
+            << "    filter2_h_min: "          << params_config_.filter2_threshold.h_min << std::endl 
+            << "    filter2_h_max: "          << params_config_.filter2_threshold.h_max << std::endl 
+            << "    filter2_s_min: "          << params_config_.filter2_threshold.s_min << std::endl 
+            << "    filter2_s_max: "          << params_config_.filter2_threshold.s_max << std::endl 
+            << "    filter2_v_min: "          << params_config_.filter2_threshold.v_min << std::endl 
+            << "    filter2_v_max: "          << params_config_.filter2_threshold.v_max << std::endl 
+            << "    ellipse_size: "           << params_config_.ellipse_size << std::endl 
+            << "    filter_image_to_debug: "  << params_config_.debug << std::endl << std::endl;
 }
 
 void BallDetector::saveConfig()
