@@ -27,6 +27,7 @@ int main(int argc, char **argv)
   //create ros wrapper object
   auto node = std::make_shared<robotis_op::BallDetector>();
 
+  node-> initialize();
   //set node loop rate
   rclcpp::Rate loop_rate(30);
 
