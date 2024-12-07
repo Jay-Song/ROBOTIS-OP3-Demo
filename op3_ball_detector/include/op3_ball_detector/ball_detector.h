@@ -75,7 +75,7 @@ class BallDetector : public rclcpp::Node
   //callbacks to camera info subscription
   void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
-  void dynParamCallback(DetectorParamsConfig &config, uint32_t level);
+  //void dynParamCallback(DetectorParamsConfig &config, uint32_t level);
   void enableCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
   void paramCommandCallback(const std_msgs::msg::String::SharedPtr msg);
