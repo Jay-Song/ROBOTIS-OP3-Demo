@@ -106,7 +106,7 @@ BallDetector::BallDetector()
   //initializes newImageFlag
   new_image_flag_ = false;
 
-  // dynamic_reconfigure
+  // TODO : dynamic_reconfigure migration
   // callback_fnc_ = std::bind(&BallDetector::dynParamCallback, this, std::placeholders::_1, std::placeholders::_2);
   // param_server_ = std::make_shared<dynamic_reconfigure::Server<op3_ball_detector_msgs::msg::BallDetectorParams>>(this);
   // param_server_->setCallback(callback_fnc_);
