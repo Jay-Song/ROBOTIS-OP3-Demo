@@ -41,7 +41,7 @@ VisionDemo::VisionDemo()
   set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
 
   // Use timer for loop rate
-  create_wall_timer(std::chrono::duration<double>(1.0 / SPIN_RATE), std::bind(&ButtonTest::process, this));
+  create_wall_timer(std::chrono::duration<double>(1.0 / SPIN_RATE), std::bind(&VisionDemo::process, this));
 }
 
 VisionDemo::~VisionDemo()
