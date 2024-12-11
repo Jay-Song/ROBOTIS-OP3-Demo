@@ -62,6 +62,9 @@ class BallDetector : public rclcpp::Node
 
   //publish the circle set data
   void publishCircles();
+  
+  // init imageport
+  void initialize();
 
  protected:
   const static int NOT_FOUND_TH = 30;
@@ -72,7 +75,7 @@ class BallDetector : public rclcpp::Node
   //callbacks to camera info subscription
   void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 
-  void dynParamCallback(DetectorParamsConfig &config, uint32_t level);
+  //void dynParamCallback(DetectorParamsConfig &config, uint32_t level);
   void enableCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
   void paramCommandCallback(const std_msgs::msg::String::SharedPtr msg);
@@ -101,7 +104,7 @@ class BallDetector : public rclcpp::Node
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enable_sub_;
 
   //image publisher/subscriber
-  image_transport::ImageTransport it_;
+  image_transport::ImageTransport* it_;
   image_transport::Publisher image_pub_;
   cv_bridge::CvImage cv_img_pub_;
   image_transport::Subscriber image_sub_;
@@ -154,8 +157,11 @@ class BallDetector : public rclcpp::Node
   cv::Mat in_image_;
   cv::Mat out_image_;
 
-  // dynamic_reconfigure::Server<op3_ball_detector_msgs::msg::BallDetectorParams> param_server_;
-  // dynamic_reconfigure::Server<op3_ball_detector_msgs::msg::BallDetectorParams>::CallbackType callback_fnc_;
+  // Detector Config Parameter Monitorning 
+  std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_[23];
+  std::shared_ptr<rclcpp::ParameterCallbackHandle> callback_handle_[23];
+
+  void paramCallback(const rclcpp::Parameter& p);
 };
 
 }       // namespace robotis_op

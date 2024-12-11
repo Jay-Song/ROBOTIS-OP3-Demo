@@ -23,10 +23,36 @@
 namespace robotis_op
 {
 
+std::string param_names[23] = {
+  "gaussian_blur_size", 
+  "gaussian_blur_sigma", 
+  "canny_edge_th", 
+  "hough_accum_resolution", 
+  "min_circle_dist", 
+  "hough_accum_th", 
+  "min_radius", 
+  "max_radius", 
+  "filter_h_min", 
+  "filter_h_max", 
+  "filter_s_min", 
+  "filter_s_max", 
+  "filter_v_min", 
+  "filter_v_max", 
+  "use_second_filter" 
+  "filter2_h_min", 
+  "filter2_h_max", 
+  "filter2_s_min", 
+  "filter2_s_max", 
+  "filter2_v_min", 
+  "filter2_v_max", 
+  "ellipse_size", 
+  "filter_debug" 
+};
+    
 BallDetector::BallDetector()
   : Node("ball_detector_node"),
-    it_(std::make_shared<BallDetector>()),
     enable_(true),
+    //it_(std::make_shared<BallDetector>()),
     params_config_(),
     init_param_(false),
     not_found_count_(0)
@@ -64,7 +90,13 @@ BallDetector::BallDetector()
   this->declare_parameter("ellipse_size", ELLIPSE_SIZE);
   this->declare_parameter("filter_debug", false);
 
-  //get user parameters from dynamic reconfigure (yaml entries)
+  for (int i = 0; i < 23; i++)
+  {
+    this->param_subscriber_[i] = std::make_shared<rclcpp::ParameterEventHandler>(this);
+    this->callback_handle_[i] = this->param_subscriber_[i]->add_parameter_callback(param_names[i], std::bind(&BallDetector::paramCallback, this, std::placeholders::_1));
+  }
+
+  // get user parameters from dynamic reconfigure (yaml entries)
   this->get_parameter("gaussian_blur_size", detect_config.gaussian_blur_size);
   if (detect_config.gaussian_blur_size % 2 == 0)
     detect_config.gaussian_blur_size -= 1;
@@ -94,13 +126,14 @@ BallDetector::BallDetector()
   this->get_parameter("filter_debug", detect_config.debug);
 
   //sets publishers
-  image_pub_ = it_.advertise("image_out", 100);
+  //it_ = new image_transport::ImageTransport(this->shared_from_this());
+  //image_pub_ = it_->advertise("image_out", 100);
   circles_pub_ = this->create_publisher<op3_ball_detector_msgs::msg::CircleSetStamped>("circle_set", 100);
   camera_info_pub_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("camera_info", 100);
 
   //sets subscribers
   enable_sub_ = this->create_subscription<std_msgs::msg::Bool>("enable", 1, std::bind(&BallDetector::enableCallback, this, std::placeholders::_1));
-  image_sub_ = it_.subscribe("image_in", 1, &BallDetector::imageCallback, this);
+  //image_sub_ = it_->subscribe("image_in", 1, &BallDetector::imageCallback, this);
   camera_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>("cameraInfo_in", 100, std::bind(&BallDetector::cameraInfoCallback, this, std::placeholders::_1));
 
   //initializes newImageFlag
@@ -116,7 +149,8 @@ BallDetector::BallDetector()
   param_command_sub_ = this->create_subscription<std_msgs::msg::String>("param_command", 1, std::bind(&BallDetector::paramCommandCallback, this, std::placeholders::_1));
   set_param_client_ = this->create_service<op3_ball_detector_msgs::srv::SetParameters>("set_param", std::bind(&BallDetector::setParamCallback, this, std::placeholders::_1, std::placeholders::_2));
   get_param_client_ = this->create_service<op3_ball_detector_msgs::srv::GetParameters>("get_param", std::bind(&BallDetector::getParamCallback, this, std::placeholders::_1, std::placeholders::_2));
-  default_setting_path_ = ament_index_cpp::get_package_share_directory(ROS_PACKAGE_NAME) + "/config/ball_detector_params_default.yaml";
+  //default_setting_path_ = ament_index_cpp::get_package_share_directory(ROS_PACKAGE_NAME) + "/config/ball_detector_params_default.yaml";
+  default_setting_path_ = ament_index_cpp::get_package_share_directory("op3_ball_detector") + "/config/ball_detector_params_default.yaml";
 
   //sets config and prints it
   params_config_ = detect_config;
@@ -126,7 +160,168 @@ BallDetector::BallDetector()
 
 BallDetector::~BallDetector()
 {
+  delete it_;
+}
 
+void BallDetector::initialize()
+{
+  it_ = new image_transport::ImageTransport(this->shared_from_this());
+  image_pub_ = it_->advertise("image_out", 100);
+  image_sub_ = it_->subscribe("image_in", 1, &BallDetector::imageCallback, this);
+}
+
+void BallDetector::paramCallback(const rclcpp::Parameter& p)
+{
+  std::string param_name = p.get_name();
+
+  if (param_name == "gaussian_blur_size")
+  {
+    params_config_.gaussian_blur_size = p.as_int();
+
+    if (params_config_.gaussian_blur_size % 2 == 0)
+      params_config_.gaussian_blur_size -= 1;
+    if (params_config_.gaussian_blur_size <= 0)
+      params_config_.gaussian_blur_size = 1;
+
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.gaussian_blur_size);
+    saveConfig();
+  }
+  else if (param_name == "gaussian_blur_sigma")
+  {
+    params_config_.gaussian_blur_sigma = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.gaussian_blur_sigma);
+    saveConfig();
+  }
+  else if (param_name == "canny_edge_th")
+  {
+    params_config_.canny_edge_th = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.canny_edge_th);
+    saveConfig();
+  }
+  else if (param_name == "hough_accum_resolution")
+  {
+    params_config_.hough_accum_resolution = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.hough_accum_resolution);
+    saveConfig();
+  }
+  else if (param_name == "min_circle_dist")
+  {
+    params_config_.min_circle_dist = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.min_circle_dist);
+    saveConfig();
+  }
+  else if (param_name == "hough_accum_th")
+  {
+    params_config_.hough_accum_th = p.as_double();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.hough_accum_th);
+    saveConfig();
+  }
+  else if (param_name == "min_radius")
+  {
+    params_config_.min_radius = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.min_radius);
+    saveConfig();
+  }
+  else if (param_name == "max_radius")
+  {
+    params_config_.max_radius = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.max_radius);
+    saveConfig();
+  }
+  else if (param_name == "filter_h_min")
+  {
+    params_config_.filter_threshold.h_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.h_min);
+    saveConfig();
+  }
+  else if (param_name == "filter_h_max")
+  {
+    params_config_.filter_threshold.h_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.h_max);
+    saveConfig();
+  }
+  else if (param_name == "filter_s_min")
+  {
+    params_config_.filter_threshold.s_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.s_min);
+    saveConfig();
+  }
+  else if (param_name == "filter_s_max")
+  {
+    params_config_.filter_threshold.s_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.s_max);
+    saveConfig();
+  }
+  else if (param_name == "filter_v_min")
+  {
+    params_config_.filter_threshold.v_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.v_min);
+    saveConfig();
+  }
+  else if (param_name == "filter_v_max")
+  {
+    params_config_.filter_threshold.v_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter_threshold.v_max);
+    saveConfig();
+  }
+  else if (param_name == "use_second_filter")
+  {
+    params_config_.use_second_filter = p.as_bool();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.use_second_filter);
+    saveConfig();
+  }
+  else if (param_name == "filter2_h_min")
+  {
+    params_config_.filter2_threshold.h_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.h_min);
+    saveConfig();
+  }
+  else if (param_name == "filter2_h_max")
+  {
+    params_config_.filter2_threshold.h_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.h_max);
+    saveConfig();
+  }
+  else if (param_name == "filter2_s_min")
+  {
+    params_config_.filter2_threshold.s_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.s_min);
+    saveConfig();
+  }
+  else if (param_name == "filter2_s_max")
+  {
+    params_config_.filter2_threshold.s_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.s_max);
+    saveConfig();
+  }
+  else if (param_name == "filter2_v_min")
+  {
+    params_config_.filter2_threshold.v_min = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.v_min);
+    saveConfig();
+  }
+  else if (param_name == "filter2_v_max")
+  {
+    params_config_.filter2_threshold.v_max = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.filter2_threshold.v_max);
+    saveConfig();
+  }
+  else if (param_name == "ellipse_size")
+  {
+    params_config_.ellipse_size = p.as_int();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.ellipse_size);
+    saveConfig();
+  }
+  else if (param_name == "filter_debug")
+  {
+    params_config_.debug = p.as_bool();
+    RCLCPP_INFO_STREAM(this->get_logger(), param_name << " has been changed to " << params_config_.debug);
+    saveConfig();
+  }
+  else
+  {
+    RCLCPP_ERROR(this->get_logger(), "unknown param name: %s", param_name.c_str());
+  }
 }
 
 bool BallDetector::newImage()
@@ -258,41 +453,41 @@ void BallDetector::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &
   return;
 }
 
-void BallDetector::dynParamCallback(DetectorParamsConfig &config, uint32_t level)
-{
-  params_config_.gaussian_blur_size = config.gaussian_blur_size;
-  params_config_.gaussian_blur_sigma = config.gaussian_blur_sigma;
-  params_config_.canny_edge_th = config.canny_edge_th;
-  params_config_.hough_accum_resolution = config.hough_accum_resolution;
-  params_config_.min_circle_dist = config.min_circle_dist;
-  params_config_.hough_accum_th = config.hough_accum_th;
-  params_config_.min_radius = config.min_radius;
-  params_config_.max_radius = config.max_radius;
-  params_config_.filter_threshold.h_min = config.filter_h_min;
-  params_config_.filter_threshold.h_max = config.filter_h_max;
-  params_config_.filter_threshold.s_min = config.filter_s_min;
-  params_config_.filter_threshold.s_max = config.filter_s_max;
-  params_config_.filter_threshold.v_min = config.filter_v_min;
-  params_config_.filter_threshold.v_max = config.filter_v_max;
-  params_config_.use_second_filter = config.use_second_filter;
-  params_config_.filter2_threshold.h_min = config.filter2_h_min;
-  params_config_.filter2_threshold.h_max = config.filter2_h_max;
-  params_config_.filter2_threshold.s_min = config.filter2_s_min;
-  params_config_.filter2_threshold.s_max = config.filter2_s_max;
-  params_config_.filter2_threshold.v_min = config.filter2_v_min;
-  params_config_.filter2_threshold.v_max = config.filter2_v_max;
-  params_config_.ellipse_size = config.ellipse_size;
-  params_config_.debug = config.debug_image;
+// void BallDetector::dynParamCallback(DetectorParamsConfig &config, uint32_t level)
+// {
+//   params_config_.gaussian_blur_size = config.gaussian_blur_size;
+//   params_config_.gaussian_blur_sigma = config.gaussian_blur_sigma;
+//   params_config_.canny_edge_th = config.canny_edge_th;
+//   params_config_.hough_accum_resolution = config.hough_accum_resolution;
+//   params_config_.min_circle_dist = config.min_circle_dist;
+//   params_config_.hough_accum_th = config.hough_accum_th;
+//   params_config_.min_radius = config.min_radius;
+//   params_config_.max_radius = config.max_radius;
+//   params_config_.filter_threshold.h_min = config.filter_h_min;
+//   params_config_.filter_threshold.h_max = config.filter_h_max;
+//   params_config_.filter_threshold.s_min = config.filter_s_min;
+//   params_config_.filter_threshold.s_max = config.filter_s_max;
+//   params_config_.filter_threshold.v_min = config.filter_v_min;
+//   params_config_.filter_threshold.v_max = config.filter_v_max;
+//   params_config_.use_second_filter = config.use_second_filter;
+//   params_config_.filter2_threshold.h_min = config.filter2_h_min;
+//   params_config_.filter2_threshold.h_max = config.filter2_h_max;
+//   params_config_.filter2_threshold.s_min = config.filter2_s_min;
+//   params_config_.filter2_threshold.s_max = config.filter2_s_max;
+//   params_config_.filter2_threshold.v_min = config.filter2_v_min;
+//   params_config_.filter2_threshold.v_max = config.filter2_v_max;
+//   params_config_.ellipse_size = config.ellipse_size;
+//   params_config_.debug = config.debug_image;
 
-  // gaussian_blur has to be odd number.
-  if (params_config_.gaussian_blur_size % 2 == 0)
-    params_config_.gaussian_blur_size -= 1;
-  if (params_config_.gaussian_blur_size <= 0)
-    params_config_.gaussian_blur_size = 1;
+//   // gaussian_blur has to be odd number.
+//   if (params_config_.gaussian_blur_size % 2 == 0)
+//     params_config_.gaussian_blur_size -= 1;
+//   if (params_config_.gaussian_blur_size <= 0)
+//     params_config_.gaussian_blur_size = 1;
 
-  printConfig();
-  saveConfig();
-}
+//   printConfig();
+//   saveConfig();
+// }
 
 void BallDetector::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
 {
@@ -371,12 +566,30 @@ bool BallDetector::getParamCallback(const std::shared_ptr<op3_ball_detector_msgs
 
 void BallDetector::resetParameter()
 {
-  YAML::Node doc;
-
   try
   {
     // load yaml
-    doc = YAML::LoadFile(default_setting_path_.c_str());
+    YAML::Node config = YAML::LoadFile(default_setting_path_.c_str());
+
+    std::string node_name;
+    // check node name
+    // if (config[this->get_name()])
+    //   node_name = this->get_name();
+    // else if (config["/**"])
+    //   node_name = "/**";
+    // else
+    // {
+    //   RCLCPP_ERROR(this->get_logger(), "Node name '%s' or /** not found in YAML file.", this->get_name());
+    //   return;
+    // }
+
+    if (!config["/**"])
+    {
+      RCLCPP_ERROR(this->get_logger(), "Node name '%s' or /** not found in YAML file.", this->get_name());
+      return;
+    }
+
+    YAML::Node doc = config[node_name]["ros__parameters"];
 
     // parse
     params_config_.gaussian_blur_size = doc["gaussian_blur_size"].as<int>();
@@ -448,66 +661,91 @@ void BallDetector::printConfig()
   if (init_param_ == false)
     return;
 
-  std::cout << "Detetctor Configuration:" << std::endl << "    gaussian_blur_size: "
-            << params_config_.gaussian_blur_size << std::endl << "    gaussian_blur_sigma: "
-            << params_config_.gaussian_blur_sigma << std::endl << "    canny_edge_th: " << params_config_.canny_edge_th
-            << std::endl << "    hough_accum_resolution: " << params_config_.hough_accum_resolution << std::endl
-            << "    min_circle_dist: " << params_config_.min_circle_dist << std::endl << "    hough_accum_th: "
-            << params_config_.hough_accum_th << std::endl << "    min_radius: " << params_config_.min_radius
-            << std::endl << "    max_radius: " << params_config_.max_radius << std::endl << "    filter_h_min: "
-            << params_config_.filter_threshold.h_min << std::endl << "    filter_h_max: "
-            << params_config_.filter_threshold.h_max << std::endl << "    filter_s_min: "
-            << params_config_.filter_threshold.s_min << std::endl << "    filter_s_max: "
-            << params_config_.filter_threshold.s_max << std::endl << "    filter_v_min: "
-            << params_config_.filter_threshold.v_min << std::endl << "    filter_v_max: "
-            << params_config_.filter_threshold.v_max << std::endl << "    use_second_filter: "
-            << params_config_.use_second_filter << std::endl << "    filter2_h_min: "
-            << params_config_.filter2_threshold.h_min << std::endl << "    filter2_h_max: "
-            << params_config_.filter2_threshold.h_max << std::endl << "    filter2_s_min: "
-            << params_config_.filter2_threshold.s_min << std::endl << "    filter2_s_max: "
-            << params_config_.filter2_threshold.s_max << std::endl << "    filter2_v_min: "
-            << params_config_.filter2_threshold.v_min << std::endl << "    filter2_v_max: "
-            << params_config_.filter2_threshold.v_max << std::endl << "    ellipse_size: "
-            << params_config_.ellipse_size << std::endl << "    filter_image_to_debug: " << params_config_.debug
-            << std::endl << std::endl;
+  std::cout << "Detetctor Configuration:" << std::endl 
+            << "    gaussian_blur_size: "     << params_config_.gaussian_blur_size << std::endl 
+            << "    gaussian_blur_sigma: "    << params_config_.gaussian_blur_sigma << std::endl 
+            << "    canny_edge_th: "          << params_config_.canny_edge_th << std::endl 
+            << "    hough_accum_resolution: " << params_config_.hough_accum_resolution << std::endl
+            << "    min_circle_dist: "        << params_config_.min_circle_dist << std::endl 
+            << "    hough_accum_th: "         << params_config_.hough_accum_th << std::endl 
+            << "    min_radius: "             << params_config_.min_radius << std::endl 
+            << "    max_radius: "             << params_config_.max_radius << std::endl 
+            << "    filter_h_min: "           << params_config_.filter_threshold.h_min << std::endl 
+            << "    filter_h_max: "           << params_config_.filter_threshold.h_max << std::endl 
+            << "    filter_s_min: "           << params_config_.filter_threshold.s_min << std::endl 
+            << "    filter_s_max: "           << params_config_.filter_threshold.s_max << std::endl 
+            << "    filter_v_min: "           << params_config_.filter_threshold.v_min << std::endl 
+            << "    filter_v_max: "           << params_config_.filter_threshold.v_max << std::endl 
+            << "    use_second_filter: "      << params_config_.use_second_filter << std::endl 
+            << "    filter2_h_min: "          << params_config_.filter2_threshold.h_min << std::endl 
+            << "    filter2_h_max: "          << params_config_.filter2_threshold.h_max << std::endl 
+            << "    filter2_s_min: "          << params_config_.filter2_threshold.s_min << std::endl 
+            << "    filter2_s_max: "          << params_config_.filter2_threshold.s_max << std::endl 
+            << "    filter2_v_min: "          << params_config_.filter2_threshold.v_min << std::endl 
+            << "    filter2_v_max: "          << params_config_.filter2_threshold.v_max << std::endl 
+            << "    ellipse_size: "           << params_config_.ellipse_size << std::endl 
+            << "    filter_image_to_debug: "  << params_config_.debug << std::endl << std::endl;
 }
 
 void BallDetector::saveConfig()
 {
-  if (has_path_ == false)
+  if ((has_path_ == false) || (param_path_ == ""))
+  {
+    RCLCPP_ERROR(this->get_logger(), "Failed to save parameters: parameter file path was not");
     return;
+  }
 
-  YAML::Emitter yaml_out;
+  try
+  {
+    YAML::Emitter yaml_out;
 
-  yaml_out << YAML::BeginMap;
-  yaml_out << YAML::Key << "gaussian_blur_size" << YAML::Value << params_config_.gaussian_blur_size;
-  yaml_out << YAML::Key << "gaussian_blur_sigma" << YAML::Value << params_config_.gaussian_blur_sigma;
-  yaml_out << YAML::Key << "canny_edge_th" << YAML::Value << params_config_.canny_edge_th;
-  yaml_out << YAML::Key << "hough_accum_resolution" << YAML::Value << params_config_.hough_accum_resolution;
-  yaml_out << YAML::Key << "min_circle_dist" << YAML::Value << params_config_.min_circle_dist;
-  yaml_out << YAML::Key << "hough_accum_th" << YAML::Value << params_config_.hough_accum_th;
-  yaml_out << YAML::Key << "min_radius" << YAML::Value << params_config_.min_radius;
-  yaml_out << YAML::Key << "max_radius" << YAML::Value << params_config_.max_radius;
-  yaml_out << YAML::Key << "filter_h_min" << YAML::Value << params_config_.filter_threshold.h_min;
-  yaml_out << YAML::Key << "filter_h_max" << YAML::Value << params_config_.filter_threshold.h_max;
-  yaml_out << YAML::Key << "filter_s_min" << YAML::Value << params_config_.filter_threshold.s_min;
-  yaml_out << YAML::Key << "filter_s_max" << YAML::Value << params_config_.filter_threshold.s_max;
-  yaml_out << YAML::Key << "filter_v_min" << YAML::Value << params_config_.filter_threshold.v_min;
-  yaml_out << YAML::Key << "filter_v_max" << YAML::Value << params_config_.filter_threshold.v_max;
-  yaml_out << YAML::Key << "use_second_filter" << YAML::Value << params_config_.use_second_filter;
-  yaml_out << YAML::Key << "filter2_h_min" << YAML::Value << params_config_.filter2_threshold.h_min;
-  yaml_out << YAML::Key << "filter2_h_max" << YAML::Value << params_config_.filter2_threshold.h_max;
-  yaml_out << YAML::Key << "filter2_s_min" << YAML::Value << params_config_.filter2_threshold.s_min;
-  yaml_out << YAML::Key << "filter2_s_max" << YAML::Value << params_config_.filter2_threshold.s_max;
-  yaml_out << YAML::Key << "filter2_v_min" << YAML::Value << params_config_.filter2_threshold.v_min;
-  yaml_out << YAML::Key << "filter2_v_max" << YAML::Value << params_config_.filter2_threshold.v_max;
-  yaml_out << YAML::Key << "ellipse_size" << YAML::Value << params_config_.ellipse_size;
-  yaml_out << YAML::Key << "filter_debug" << YAML::Value << params_config_.debug;
-  yaml_out << YAML::EndMap;
+    yaml_out << YAML::BeginMap;
+    yaml_out << YAML::Key << "/**";             // Node name
+    yaml_out << YAML::Value << YAML::BeginMap;  // Start node map
+    yaml_out << YAML::Key << "ros__parameters"; // ROS 2 parameters section
+    yaml_out << YAML::Value << YAML::BeginMap;  // Start parameters map
+    yaml_out << YAML::Key << "gaussian_blur_size" << YAML::Value << params_config_.gaussian_blur_size;
+    yaml_out << YAML::Key << "gaussian_blur_sigma" << YAML::Value << params_config_.gaussian_blur_sigma;
+    yaml_out << YAML::Key << "canny_edge_th" << YAML::Value << params_config_.canny_edge_th;
+    yaml_out << YAML::Key << "hough_accum_resolution" << YAML::Value << params_config_.hough_accum_resolution;
+    yaml_out << YAML::Key << "min_circle_dist" << YAML::Value << params_config_.min_circle_dist;
+    yaml_out << YAML::Key << "hough_accum_th" << YAML::Value << params_config_.hough_accum_th;
+    yaml_out << YAML::Key << "min_radius" << YAML::Value << params_config_.min_radius;
+    yaml_out << YAML::Key << "max_radius" << YAML::Value << params_config_.max_radius;
+    yaml_out << YAML::Key << "filter_h_min" << YAML::Value << params_config_.filter_threshold.h_min;
+    yaml_out << YAML::Key << "filter_h_max" << YAML::Value << params_config_.filter_threshold.h_max;
+    yaml_out << YAML::Key << "filter_s_min" << YAML::Value << params_config_.filter_threshold.s_min;
+    yaml_out << YAML::Key << "filter_s_max" << YAML::Value << params_config_.filter_threshold.s_max;
+    yaml_out << YAML::Key << "filter_v_min" << YAML::Value << params_config_.filter_threshold.v_min;
+    yaml_out << YAML::Key << "filter_v_max" << YAML::Value << params_config_.filter_threshold.v_max;
+    yaml_out << YAML::Key << "use_second_filter" << YAML::Value << params_config_.use_second_filter;
+    yaml_out << YAML::Key << "filter2_h_min" << YAML::Value << params_config_.filter2_threshold.h_min;
+    yaml_out << YAML::Key << "filter2_h_max" << YAML::Value << params_config_.filter2_threshold.h_max;
+    yaml_out << YAML::Key << "filter2_s_min" << YAML::Value << params_config_.filter2_threshold.s_min;
+    yaml_out << YAML::Key << "filter2_s_max" << YAML::Value << params_config_.filter2_threshold.s_max;
+    yaml_out << YAML::Key << "filter2_v_min" << YAML::Value << params_config_.filter2_threshold.v_min;
+    yaml_out << YAML::Key << "filter2_v_max" << YAML::Value << params_config_.filter2_threshold.v_max;
+    yaml_out << YAML::Key << "ellipse_size" << YAML::Value << params_config_.ellipse_size;
+    yaml_out << YAML::Key << "filter_debug" << YAML::Value << params_config_.debug;
+    yaml_out << YAML::EndMap; // End parameters map
+    yaml_out << YAML::EndMap; // End node map
+    yaml_out << YAML::EndMap; // End main map
 
-  // output to file
-  std::ofstream fout(param_path_.c_str());
-  fout << yaml_out.c_str();
+    // output to file
+    std::ofstream fout(param_path_);
+    if (!fout.is_open())
+    {
+      RCLCPP_ERROR(this->get_logger(), "Failed to open file '%s' for writing.", param_path_.c_str());
+      return;
+    }
+    fout << yaml_out.c_str(); // Write YAML string to file
+    fout.close();
+    RCLCPP_INFO(this->get_logger(), "Saved parameters to '%s'", param_path_.c_str());
+  }
+  catch (const std::exception &e)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Failed to save parameters: %s", e.what());
+  }
 }
 
 void BallDetector::setInputImage(const cv::Mat & inIm)
