@@ -193,25 +193,23 @@ void SoccerDemo::processThread()
 
 void SoccerDemo::callbackThread()
 {
-  rclcpp::Node::SharedPtr nh = rclcpp::Node::make_shared("soccer_demo");
-
   // subscriber & publisher
-  module_control_pub_ = nh->create_publisher<robotis_controller_msgs::msg::JointCtrlModule>("/robotis/set_joint_ctrl_modules", 10);
-  motion_index_pub_ = nh->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
-  rgb_led_pub_ = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  module_control_pub_ = this->create_publisher<robotis_controller_msgs::msg::JointCtrlModule>("/robotis/set_joint_ctrl_modules", 10);
+  motion_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
+  rgb_led_pub_ = this->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
 
-  button_sub_ = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&SoccerDemo::buttonHandlerCallback, this, std::placeholders::_1));
-  demo_command_sub_ = nh->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, std::bind(&SoccerDemo::demoCommandCallback, this, std::placeholders::_1));
-  imu_data_sub_ = nh->create_subscription<sensor_msgs::msg::Imu>("/robotis/open_cr/imu", 10, std::bind(&SoccerDemo::imuDataCallback, this, std::placeholders::_1));
+  button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&SoccerDemo::buttonHandlerCallback, this, std::placeholders::_1));
+  demo_command_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, std::bind(&SoccerDemo::demoCommandCallback, this, std::placeholders::_1));
+  imu_data_sub_ = this->create_subscription<sensor_msgs::msg::Imu>("/robotis/open_cr/imu", 10, std::bind(&SoccerDemo::imuDataCallback, this, std::placeholders::_1));
 
-  is_running_client_ = nh->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
-  set_joint_module_client_ = nh->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
+  is_running_client_ = this->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
+  set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
 
-  test_pub_ = nh->create_publisher<std_msgs::msg::String>("/debug_text", 10);
+  test_pub_ = this->create_publisher<std_msgs::msg::String>("/debug_text", 10);
 
   while (rclcpp::ok())
   {
-    rclcpp::spin_some(nh);
+    rclcpp::spin_some(this->get_node_base_interface());
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
