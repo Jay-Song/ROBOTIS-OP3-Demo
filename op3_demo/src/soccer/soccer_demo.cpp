@@ -49,9 +49,22 @@ SoccerDemo::SoccerDemo()
   this->get_parameter_or<std::string>("demo_config", path);
   parseJointNameFromYaml(path);
 
-  std::thread queue_thread(&SoccerDemo::callbackThread, this);
-  std::thread process_thread(&SoccerDemo::processThread, this);
-  std::thread tracking_thread(&SoccerDemo::trackingThread, this);
+  // subscriber & publisher
+  module_control_pub_ = this->create_publisher<robotis_controller_msgs::msg::JointCtrlModule>("/robotis/set_joint_ctrl_modules", 10);
+  motion_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
+  rgb_led_pub_ = this->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+
+  button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&SoccerDemo::buttonHandlerCallback, this, std::placeholders::_1));
+  demo_command_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, std::bind(&SoccerDemo::demoCommandCallback, this, std::placeholders::_1));
+  imu_data_sub_ = this->create_subscription<sensor_msgs::msg::Imu>("/robotis/open_cr/imu", 10, std::bind(&SoccerDemo::imuDataCallback, this, std::placeholders::_1));
+
+  is_running_client_ = this->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
+  set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
+
+  test_pub_ = this->create_publisher<std_msgs::msg::String>("/debug_text", 10);
+
+  process_thread_ = std::thread(&SoccerDemo::processThread, this);
+  tracking_thread_ = std::thread(&SoccerDemo::trackingThread, this);
 
   this->declare_parameter<bool>("grass_demo", false);
   this->get_parameter_or<bool>("grass_demo", is_grass_);
@@ -59,7 +72,10 @@ SoccerDemo::SoccerDemo()
 
 SoccerDemo::~SoccerDemo()
 {
-
+  if (process_thread_.joinable())
+    process_thread_.join();
+  if (tracking_thread_.joinable())
+    tracking_thread_.join();
 }
 
 void SoccerDemo::setDemoEnable()
@@ -193,19 +209,6 @@ void SoccerDemo::processThread()
 
 void SoccerDemo::callbackThread()
 {
-  // subscriber & publisher
-  module_control_pub_ = this->create_publisher<robotis_controller_msgs::msg::JointCtrlModule>("/robotis/set_joint_ctrl_modules", 10);
-  motion_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
-  rgb_led_pub_ = this->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
-
-  button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&SoccerDemo::buttonHandlerCallback, this, std::placeholders::_1));
-  demo_command_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, std::bind(&SoccerDemo::demoCommandCallback, this, std::placeholders::_1));
-  imu_data_sub_ = this->create_subscription<sensor_msgs::msg::Imu>("/robotis/open_cr/imu", 10, std::bind(&SoccerDemo::imuDataCallback, this, std::placeholders::_1));
-
-  is_running_client_ = this->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
-  set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
-
-  test_pub_ = this->create_publisher<std_msgs::msg::String>("/debug_text", 10);
 
   while (rclcpp::ok())
   {

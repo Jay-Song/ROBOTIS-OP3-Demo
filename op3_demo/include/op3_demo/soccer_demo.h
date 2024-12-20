@@ -130,6 +130,9 @@ class SoccerDemo : public OPDemo, public rclcpp::Node
   int tracking_status_;
   int stand_state_;
   double present_pitch_;
+
+  std::thread process_thread_;
+  std::thread tracking_thread_;
 };
 
 }  // namespace robotis_op

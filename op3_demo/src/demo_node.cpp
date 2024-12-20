@@ -63,25 +63,29 @@ int main(int argc, char **argv)
   //init ros
   rclcpp::init(argc, argv);
 
-  //create ros wrapper object
-  robotis_op::OPDemo *current_demo = NULL;
-  robotis_op::SoccerDemo *soccer_demo = new robotis_op::SoccerDemo();
-  robotis_op::ActionDemo *action_demo = new robotis_op::ActionDemo();
-  robotis_op::VisionDemo *vision_demo = new robotis_op::VisionDemo();
-
   auto nh = rclcpp::Node::make_shared("demo_node");
 
   init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 10);
   play_sound_pub = nh->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
   led_pub = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
   dxl_torque_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
+
   auto button_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
   auto mode_command_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/mode_command", 10, demoModeCommandCallback);
+
+  RCLCPP_WARN(nh->get_logger(), "Demo node started");
+
+  //create ros wrapper object
+  robotis_op::OPDemo *current_demo = NULL;
+  robotis_op::SoccerDemo *soccer_demo = new robotis_op::SoccerDemo();
+  robotis_op::ActionDemo *action_demo = new robotis_op::ActionDemo();
+  robotis_op::VisionDemo *vision_demo = new robotis_op::VisionDemo();
 
   default_mp3_path = ament_index_cpp::get_package_share_directory("op3_demo") + "/data/mp3/";
 
   rclcpp::Rate loop_rate(SPIN_RATE);
 
+  RCLCPP_WARN(nh->get_logger(), "Demo node loop start");
   // wait for starting of manager
   std::string manager_name = "/op3_manager";
   while (rclcpp::ok())
@@ -130,7 +134,7 @@ int main(int argc, char **argv)
           if (current_demo != NULL)
             current_demo->setDemoDisable();
 
-          current_demo = soccer_demo;
+          //current_demo = soccer_demo;
           current_demo->setDemoEnable();
 
           if(DEBUG_PRINT)
