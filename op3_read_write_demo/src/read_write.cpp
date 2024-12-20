@@ -29,7 +29,7 @@ void readyToDemo();
 void setModule(const std::string& module_name);
 void goInitPose();
 void setLED(int led);
-bool checkManagerRunning(rclcpp::Node::SharedPtr node, std::string& manager_name);
+bool checkManagerRunning(std::string& manager_name);
 void torqueOnAll();
 void torqueOff(const std::string& body_side);
 
@@ -56,25 +56,27 @@ rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedPtr set_joint_mod
 int control_module = None;
 bool demo_ready = false;
 
+rclcpp::Node::SharedPtr node;
+
 //node main
 int main(int argc, char **argv)
 {
   //init ros
   rclcpp::init(argc, argv);
 
-  auto nh = rclcpp::Node::make_shared("read_write_demo");
+  node = rclcpp::Node::make_shared("read_write_demo");
 
-  init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 5);
-  sync_write_pub = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
-  dxl_torque_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
-  write_joint_pub = nh->create_publisher<sensor_msgs::msg::JointState>("/robotis/set_joint_states", 10);
-  write_joint_pub2 = nh->create_publisher<sensor_msgs::msg::JointState>("/robotis/direct_control/set_joint_states", 10);
+  init_pose_pub = node->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 5);
+  sync_write_pub = node->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  dxl_torque_pub = node->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
+  write_joint_pub = node->create_publisher<sensor_msgs::msg::JointState>("/robotis/set_joint_states", 10);
+  write_joint_pub2 = node->create_publisher<sensor_msgs::msg::JointState>("/robotis/direct_control/set_joint_states", 10);
 
-  read_joint_sub = nh->create_subscription<sensor_msgs::msg::JointState>("/robotis/present_joint_states", 10, jointstatesCallback);
-  button_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
+  read_joint_sub = node->create_subscription<sensor_msgs::msg::JointState>("/robotis/present_joint_states", 10, jointstatesCallback);
+  button_sub = node->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
 
   // service
-  set_joint_module_client = nh->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
+  set_joint_module_client = node->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
 
   rclcpp::Rate loop_rate(SPIN_RATE);
 
@@ -84,12 +86,12 @@ int main(int argc, char **argv)
   {
     rclcpp::sleep_for(std::chrono::seconds(1));
 
-    if (checkManagerRunning(nh, manager_name) == true)
+    if (checkManagerRunning(manager_name) == true)
     {
+      RCLCPP_INFO(node->get_logger(), "Succeed to connect");
       break;
-      RCLCPP_INFO(nh->get_logger(), "Succeed to connect");
     }
-    RCLCPP_WARN(nh->get_logger(), "Waiting for op3 manager");
+    RCLCPP_WARN(node->get_logger(), "Waiting for op3 manager");
   }
 
   readyToDemo();
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
     // process
 
     //execute pending callbacks
-    rclcpp::spin_some(nh);
+    rclcpp::spin_some(node);
 
     //relax to fit output rate
     loop_rate.sleep();
@@ -117,14 +119,14 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
   if (msg->data == "mode")
   {
     control_module = Framework;
-    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Button : mode | Framework");
+    RCLCPP_INFO(node->get_logger(), "Button : mode | Framework");
     readyToDemo();
   }
   // starting demo using direct_control_module
   else if (msg->data == "start")
   {
     control_module = DirectControlModule;
-    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Button : start | Direct control module");
+    RCLCPP_INFO(node->get_logger(), "Button : start | Direct control module");
     readyToDemo();
   }
   // torque on all joints of ROBOTIS-OP3
@@ -181,16 +183,16 @@ void jointstatesCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 
 void readyToDemo()
 {
-  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Start Read-Write Demo");
+  RCLCPP_INFO(node->get_logger(), "Start Read-Write Demo");
   // turn off LED
   setLED(0x04);
 
   torqueOnAll();
-  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Torque on All joints");
+  RCLCPP_INFO(node->get_logger(), "Torque on All joints");
 
   // send message for going init posture
   goInitPose();
-  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Go Init pose");
+  RCLCPP_INFO(node->get_logger(), "Go Init pose");
 
   // wait while ROBOTIS-OP3 goes to the init posture.
   rclcpp::sleep_for(std::chrono::seconds(4));
@@ -202,19 +204,22 @@ void readyToDemo()
   if(control_module == Framework)
   {
     setModule("none");
-    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Change module to none");
+    RCLCPP_INFO(node->get_logger(), "Change module to none");
   }
   else if(control_module == DirectControlModule)
   {
     setModule("direct_control_module");
-    RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Change module to direct_control_module");
+    RCLCPP_INFO(node->get_logger(), "Change module to direct_control_module");
   }
   else
+  {
+    RCLCPP_ERROR(node->get_logger(), "Invalid control module : %d", control_module);
     return;
+  }
 
   // torque off : right arm
   torqueOff("right");
-  RCLCPP_INFO(rclcpp::get_logger("read_write_demo"), "Torque off");
+  RCLCPP_INFO(node->get_logger(), "Torque off");
 }
 
 void goInitPose()
@@ -235,7 +240,7 @@ void setLED(int led)
   sync_write_pub->publish(syncwrite_msg);
 }
 
-bool checkManagerRunning(rclcpp::Node::SharedPtr node, std::string& manager_name)
+bool checkManagerRunning(std::string& manager_name)
 {
   auto node_list = node->get_node_names();
 
@@ -245,7 +250,7 @@ bool checkManagerRunning(rclcpp::Node::SharedPtr node, std::string& manager_name
       return true;
   }
 
-  RCLCPP_ERROR(rclcpp::get_logger("read_write_demo"), "Can't find op3_manager");
+  RCLCPP_ERROR(node->get_logger(), "Can't find op3_manager");
   return false;
 }
 
@@ -254,14 +259,17 @@ void setModule(const std::string& module_name)
   auto request = std::make_shared<robotis_controller_msgs::srv::SetModule::Request>();
   request->module_name = module_name;
 
-  auto result = set_joint_module_client->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(rclcpp::Node::make_shared("set_module_node"), result) != rclcpp::FutureReturnCode::SUCCESS)
+  if (!set_joint_module_client->wait_for_service(std::chrono::seconds(1)))
   {
-    RCLCPP_ERROR(rclcpp::get_logger("read_write_demo"), "Failed to set module");
+    RCLCPP_ERROR(node->get_logger(), "Service not available");
     return;
   }
 
-  return ;
+  auto future = set_joint_module_client->async_send_request(request,
+      [module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result)
+      {
+        RCLCPP_INFO(node->get_logger(), "read_write setModule(%s) : result : %d", module_name.c_str(), result.get()->result);
+      });
 }
 
 void torqueOnAll()
