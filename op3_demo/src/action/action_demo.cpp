@@ -33,11 +33,11 @@ ActionDemo::ActionDemo()
 
   std::string default_path = ament_index_cpp::get_package_share_directory("op3_demo") + "/list/action_script.yaml";
   this->declare_parameter<std::string>("action_script", default_path);
-  this->get_parameter_or<std::string>("action_script", script_path_);
+  this->get_parameter<std::string>("action_script", script_path_);
 
   std::string default_play_list = "default";
   this->declare_parameter<std::string>("action_script_play_list", default_play_list);
-  this->get_parameter_or<std::string>("action_script_play_list", play_list_name_);
+  this->get_parameter<std::string>("action_script_play_list", play_list_name_);
 
   demo_command_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 1, std::bind(&ActionDemo::demoCommandCallback, this, std::placeholders::_1));
 
@@ -174,21 +174,19 @@ void ActionDemo::processThread()
 
 void ActionDemo::callbackThread()
 {
-  rclcpp::Node::SharedPtr nh = rclcpp::Node::make_shared("action_demo");
-
   // subscriber & publisher
-  module_control_pub_ = nh->create_publisher<std_msgs::msg::String>("/robotis/enable_ctrl_module", 10);
-  motion_index_pub_ = nh->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
-  play_sound_pub_ = nh->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
+  module_control_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/enable_ctrl_module", 10);
+  motion_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
+  play_sound_pub_ = this->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
 
-  button_sub_ = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 1, std::bind(&ActionDemo::buttonHandlerCallback, this, std::placeholders::_1));
+  button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 1, std::bind(&ActionDemo::buttonHandlerCallback, this, std::placeholders::_1));
 
-  is_running_client_ = nh->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
-  set_joint_module_client_ = nh->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
+  is_running_client_ = this->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
+  set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
 
   while (rclcpp::ok())
   {
-    rclcpp::spin_some(nh);
+    rclcpp::spin_some(this->get_node_base_interface());
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -226,7 +224,6 @@ void ActionDemo::parseActionScript(const std::string &path)
 
 bool ActionDemo::parseActionScriptSetName(const std::string &path, const std::string &set_name)
 {
-
   YAML::Node doc;
 
   try
@@ -306,27 +303,36 @@ void ActionDemo::brakeAction()
 // check running of action
 bool ActionDemo::isActionRunning()
 {
-  auto is_running_srv = std::make_shared<op3_action_module_msgs::srv::IsRunning::Request>();
+  auto request = std::make_shared<op3_action_module_msgs::srv::IsRunning::Request>();
+  bool request_result = true;
 
   if (!is_running_client_->wait_for_service(std::chrono::seconds(1)))
   {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get action status");
-    return true;
+    RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service not available");
+    return request_result;
   }
 
-  auto result = is_running_client_->async_send_request(is_running_srv);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS)
+  auto future = is_running_client_->async_send_request(request);
+
+  try
   {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get action status");
-    return true;
+    auto result = future.get();
+    if (result)
+    {
+      RCLCPP_INFO(this->get_logger(), "ActionDemo::isActionRunning - is running : %d", result->is_running);
+      request_result = result->is_running;
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed (no result)");
+    }
   }
-
-  if (result.get()->is_running)
+  catch(const std::exception& e)
   {
-    return true;
+    RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed: %s", e.what());
   }
 
-  return false;
+  return request_result;
 }
 
 void ActionDemo::buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
@@ -369,7 +375,7 @@ void ActionDemo::buttonHandlerCallback(const std_msgs::msg::String::SharedPtr ms
 void ActionDemo::setModuleToDemo(const std::string &module_name)
 {
   callServiceSettingModule(module_name);
-  RCLCPP_INFO(this->get_logger(), "enable module : %s", module_name.c_str());
+  RCLCPP_INFO(this->get_logger(), "ActionDemo::setModuleToDemo - enable module : %s", module_name.c_str());
 }
 
 void ActionDemo::callServiceSettingModule(const std::string &module_name)
@@ -383,12 +389,11 @@ void ActionDemo::callServiceSettingModule(const std::string &module_name)
     return;
   }
 
-  auto result = set_joint_module_client_->async_send_request(set_module_srv);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS)
-  {
-    RCLCPP_ERROR(this->get_logger(), "Failed to set module");
-    return;
-  }
+  auto future = set_joint_module_client_->async_send_request(set_module_srv,
+      [this, module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result)
+      {
+        RCLCPP_INFO(this->get_logger(), "ActionDemo::callServiceSettingModule(%s) : result : %d", module_name.c_str(), result.get()->result);
+      });
 }
 
 void ActionDemo::demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)

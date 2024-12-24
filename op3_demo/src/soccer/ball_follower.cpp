@@ -342,21 +342,29 @@ bool BallFollower::getWalkingParam()
 {
   auto request = std::make_shared<op3_walking_module_msgs::srv::GetWalkingParam::Request>();
 
-  auto result = get_walking_param_client_->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) == rclcpp::FutureReturnCode::SUCCESS)
+  if (!get_walking_param_client_->wait_for_service(std::chrono::seconds(1)))
   {
-    current_walking_param_ = result.get()->parameters;
-
-    if (DEBUG_PRINT)
-      RCLCPP_INFO(this->get_logger(), "Get walking parameters");
-
-    return true;
-  }
-  else
-  {
-    RCLCPP_ERROR(this->get_logger(), "Fail to get walking parameters.");
+    RCLCPP_ERROR(this->get_logger(), "BallFollower::getWalkingParam - Service not available");
     return false;
   }
+
+  auto future = get_walking_param_client_->async_send_request(request,
+      [this](rclcpp::Client<op3_walking_module_msgs::srv::GetWalkingParam>::SharedFuture result)
+      {
+        if (result.get())
+        {
+          current_walking_param_ = result.get()->parameters;
+
+          if (DEBUG_PRINT)
+            RCLCPP_INFO(this->get_logger(), "Get walking parameters");
+        }
+        else
+        {
+          RCLCPP_ERROR(this->get_logger(), "Fail to get walking parameters.");
+        }
+      });
+
+  return true;
 }
 
 }

@@ -153,7 +153,7 @@ void VisionDemo::demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)
 void VisionDemo::setModuleToDemo(const std::string &module_name)
 {
   callServiceSettingModule(module_name);
-  RCLCPP_INFO(this->get_logger(), "enable module : %s", module_name.c_str());
+  RCLCPP_INFO(this->get_logger(), "VisionDemo::setModuleToDemo - enable module : %s", module_name.c_str());
 }
 
 void VisionDemo::callServiceSettingModule(const std::string &module_name)
@@ -161,12 +161,17 @@ void VisionDemo::callServiceSettingModule(const std::string &module_name)
   auto request = std::make_shared<robotis_controller_msgs::srv::SetModule::Request>();
   request->module_name = module_name;
 
-  auto result = set_joint_module_client_->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS)
+  if (!set_joint_module_client_->wait_for_service(std::chrono::seconds(1)))
   {
-    RCLCPP_ERROR(this->get_logger(), "Failed to set module");
+    RCLCPP_ERROR(this->get_logger(), "VisionDemo::callServiceSettingModule - Service not available");
     return;
   }
+
+  auto future = set_joint_module_client_->async_send_request(request,
+      [this, module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result) 
+      {
+        RCLCPP_INFO(this->get_logger(), "VisionDemo::callServiceSettingModule(%s) - result : %d", module_name.c_str(), result.get()->result);
+      });
 }
 
 void VisionDemo::facePositionCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)

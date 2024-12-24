@@ -57,23 +57,25 @@ int current_status = Ready;
 int desired_status = Ready;
 bool apply_desired = false;
 
+rclcpp::Node::SharedPtr node;
+
 //node main
 int main(int argc, char **argv)
 {
   //init ros
   rclcpp::init(argc, argv);
 
-  auto nh = rclcpp::Node::make_shared("demo_node");
+  node = rclcpp::Node::make_shared("demo_node");
 
-  init_pose_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 10);
-  play_sound_pub = nh->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
-  led_pub = nh->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
-  dxl_torque_pub = nh->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
+  init_pose_pub = node->create_publisher<std_msgs::msg::String>("/robotis/base/ini_pose", 10);
+  play_sound_pub = node->create_publisher<std_msgs::msg::String>("/play_sound_file", 10);
+  led_pub = node->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  dxl_torque_pub = node->create_publisher<std_msgs::msg::String>("/robotis/dxl_torque", 10);
 
-  auto button_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
-  auto mode_command_sub = nh->create_subscription<std_msgs::msg::String>("/robotis/mode_command", 10, demoModeCommandCallback);
+  auto button_sub = node->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
+  auto mode_command_sub = node->create_subscription<std_msgs::msg::String>("/robotis/mode_command", 10, demoModeCommandCallback);
 
-  RCLCPP_WARN(nh->get_logger(), "Demo node started");
+  RCLCPP_WARN(node->get_logger(), "Demo node started");
 
   //create ros wrapper object
   robotis_op::OPDemo *current_demo = NULL;
@@ -85,7 +87,7 @@ int main(int argc, char **argv)
 
   rclcpp::Rate loop_rate(SPIN_RATE);
 
-  RCLCPP_WARN(nh->get_logger(), "Demo node loop start");
+  RCLCPP_WARN(node->get_logger(), "Demo node loop start");
   // wait for starting of manager
   std::string manager_name = "/op3_manager";
   while (rclcpp::ok())
@@ -96,9 +98,9 @@ int main(int argc, char **argv)
     {
       break;
       if (DEBUG_PRINT)
-        RCLCPP_INFO(nh->get_logger(), "Succeed to connect");
+        RCLCPP_INFO(node->get_logger(), "Succeed to connect");
     }
-    RCLCPP_WARN(nh->get_logger(), "Waiting for op3 manager");
+    RCLCPP_WARN(node->get_logger(), "Waiting for op3 manager");
   }
 
   // init procedure
@@ -125,7 +127,7 @@ int main(int argc, char **argv)
           goInitPose();
 
           if(DEBUG_PRINT)
-            RCLCPP_INFO(nh->get_logger(), "[Go to Demo READY!]");
+            RCLCPP_INFO(node->get_logger(), "[Go to Demo READY!]");
           break;
         }
 
@@ -134,11 +136,11 @@ int main(int argc, char **argv)
           if (current_demo != NULL)
             current_demo->setDemoDisable();
 
-          //current_demo = soccer_demo;
+          current_demo = soccer_demo;
           current_demo->setDemoEnable();
 
           if(DEBUG_PRINT)
-            RCLCPP_INFO(nh->get_logger(), "[Start] Soccer Demo");
+            RCLCPP_INFO(node->get_logger(), "[Start] Soccer Demo");
           break;
         }
 
@@ -150,7 +152,7 @@ int main(int argc, char **argv)
           current_demo = vision_demo;
           current_demo->setDemoEnable();
           if(DEBUG_PRINT)
-            RCLCPP_INFO(nh->get_logger(), "[Start] Vision Demo");
+            RCLCPP_INFO(node->get_logger(), "[Start] Vision Demo");
           break;
         }
         case ActionDemo:
@@ -161,7 +163,7 @@ int main(int argc, char **argv)
           current_demo = action_demo;
           current_demo->setDemoEnable();
           if(DEBUG_PRINT)
-            RCLCPP_INFO(nh->get_logger(), "[Start] Action Demo");
+            RCLCPP_INFO(node->get_logger(), "[Start] Action Demo");
           break;
         }
 
@@ -176,7 +178,7 @@ int main(int argc, char **argv)
     }
 
     //execute pending callbacks
-    rclcpp::spin_some(nh);
+    rclcpp::spin_some(node);
 
     //relax to fit output rate
     loop_rate.sleep();
@@ -242,7 +244,7 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
       }
 
       if(DEBUG_PRINT)
-        RCLCPP_INFO(rclcpp::get_logger("demo_node"), "= Start Demo Mode : %d", desired_status);
+        RCLCPP_INFO(node->get_logger(), "= Start Demo Mode : %d", desired_status);
     }
     else if (msg->data == "mode")
     {
@@ -273,7 +275,7 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
       }
 
       if(DEBUG_PRINT)
-        RCLCPP_INFO(rclcpp::get_logger("demo_node"), "= Demo Mode : %d", desired_status);
+        RCLCPP_INFO(node->get_logger(), "= Demo Mode : %d", desired_status);
     }
   }
 }
@@ -306,7 +308,6 @@ void setLED(int led)
 
 bool checkManagerRunning(std::string& manager_name)
 {
-  auto node = rclcpp::Node::make_shared("demo_node");
   auto node_list = node->get_node_graph_interface()->get_node_names();
 
   for (const auto& node_name : node_list)
@@ -329,8 +330,6 @@ void dxlTorqueChecker()
 
 void demoModeCommandCallback(const std_msgs::msg::String::SharedPtr msg)
 {
-  auto node = rclcpp::Node::make_shared("demo_node");
-
   // In demo mode
   if (current_status != Ready)
   {

@@ -46,7 +46,7 @@ SoccerDemo::SoccerDemo()
   std::string default_path = ament_index_cpp::get_package_share_directory("op3_gui_demo") + "/config/gui_config.yaml";
   std::string path;
   this->declare_parameter<std::string>("demo_config", default_path);
-  this->get_parameter_or<std::string>("demo_config", path);
+  this->get_parameter<std::string>("demo_config", path);
   parseJointNameFromYaml(path);
 
   // subscriber & publisher
@@ -67,7 +67,7 @@ SoccerDemo::SoccerDemo()
   tracking_thread_ = std::thread(&SoccerDemo::trackingThread, this);
 
   this->declare_parameter<bool>("grass_demo", false);
-  this->get_parameter_or<bool>("grass_demo", is_grass_);
+  this->get_parameter<bool>("grass_demo", is_grass_);
 }
 
 SoccerDemo::~SoccerDemo()
@@ -316,7 +316,7 @@ void SoccerDemo::setModuleToDemo(const std::string &module_name)
     return;
 
   callServiceSettingModule(control_msg);
-  std::cout << "enable module : " << module_name << std::endl;
+  std::cout << "SoccerDemo::setModuleToDemo - enable module : " << module_name << std::endl;
 }
 
 void SoccerDemo::callServiceSettingModule(const robotis_controller_msgs::msg::JointCtrlModule &modules)
@@ -326,15 +326,15 @@ void SoccerDemo::callServiceSettingModule(const robotis_controller_msgs::msg::Jo
   request->module_name = modules.module_name;
 
   if (!set_joint_module_client_->wait_for_service(std::chrono::seconds(1))) {
-    RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Service not available");
+    RCLCPP_ERROR(this->get_logger(), "[SoccerDemo::callServiceSettingModule] Service not available");
     return;
   }
 
-  auto result = set_joint_module_client_->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to call service");
-    return;
-  }
+  auto future = set_joint_module_client_->async_send_request(request,
+      [this, modules](rclcpp::Client<robotis_controller_msgs::srv::SetJointModule>::SharedFuture result)
+      {
+        RCLCPP_INFO(this->get_logger(), "[SoccerDemo::callServiceSettingModule] result : %d", result.get()->result);
+      });
 }
 
 void SoccerDemo::parseJointNameFromYaml(const std::string &path)
@@ -655,14 +655,34 @@ void SoccerDemo::setRGBLED(int blue, int green, int red)
 bool SoccerDemo::isActionRunning()
 {
   auto request = std::make_shared<op3_action_module_msgs::srv::IsRunning::Request>();
+  bool request_result = true;
 
-  auto result = is_running_client_->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) != rclcpp::FutureReturnCode::SUCCESS) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get action status");
-    return true;
+  if (!is_running_client_->wait_for_service(std::chrono::seconds(1))) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service not available");
+    return request_result;
   }
 
-  return result.get()->is_running;
+  auto future = is_running_client_->async_send_request(request);
+
+  try
+  {
+    auto result = future.get();
+    if (result)
+    {
+      RCLCPP_INFO(this->get_logger(), "SoccerDemo::isActionRunning - is running : %d", result->is_running);
+      request_result = result->is_running;
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed (no result)");
+    }
+  }
+  catch(const std::exception& e)
+  {
+    RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed: %s", e.what());
+  }
+
+  return request_result;
 }
 
 void SoccerDemo::sendDebugTopic(const std::string &msgs)
