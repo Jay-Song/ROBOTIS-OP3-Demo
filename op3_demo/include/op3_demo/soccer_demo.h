@@ -118,6 +118,7 @@ class SoccerDemo : public OPDemo, public rclcpp::Node
   std::map<int, std::string> id_joint_table_;
   std::map<std::string, int> joint_id_table_;
 
+  bool is_start_soccer_running_;
   bool is_grass_;
   int wait_count_;
   bool on_following_ball_;

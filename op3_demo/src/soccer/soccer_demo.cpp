@@ -24,6 +24,7 @@ namespace robotis_op
 
 SoccerDemo::SoccerDemo()
   : Node("soccer_demo"),
+    is_start_soccer_running_(false),
     FALL_FORWARD_LIMIT(60),
     FALL_BACK_LIMIT(-60),
     SPIN_RATE(30),
@@ -475,9 +476,16 @@ void SoccerDemo::imuDataCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 
 void SoccerDemo::startSoccerMode()
 {
+  if (is_start_soccer_running_ == true)
+    return;
+
+  is_start_soccer_running_ = true;
+
   setModuleToDemo("action_module");
 
   playMotion(WalkingReady);
+  while(isActionRunning() == true)
+    rclcpp::sleep_for(std::chrono::milliseconds(100));
 
   setBodyModuleToDemo("walking_module");
 
@@ -485,6 +493,8 @@ void SoccerDemo::startSoccerMode()
   on_following_ball_ = true;
   on_tracking_ball_ = true;
   start_following_ = true;
+
+  is_start_soccer_running_ = false;
 }
 
 void SoccerDemo::stopSoccerMode()
@@ -497,7 +507,7 @@ void SoccerDemo::stopSoccerMode()
 
 void SoccerDemo::handleKick(int ball_position)
 {
-  usleep(1500 * 1000);
+  rclcpp::sleep_for(std::chrono::milliseconds(1500));
 
   // change to motion module
   setModuleToDemo("action_module");
@@ -527,7 +537,7 @@ void SoccerDemo::handleKick(int ball_position)
   tracking_status_ = BallTracker::NotFound;
   ball_follower_.clearBallPosition();
 
-  usleep(2000 * 1000);
+  rclcpp::sleep_for(std::chrono::milliseconds(2000));
 
   if (handleFallen(stand_state_) == true)
     return;
@@ -538,7 +548,7 @@ void SoccerDemo::handleKick(int ball_position)
 
 void SoccerDemo::handleKick()
 {
-  usleep(1500 * 1000);
+  rclcpp::sleep_for(std::chrono::milliseconds(2000));
 
   // change to motion module
   setModuleToDemo("action_module");
@@ -581,7 +591,7 @@ void SoccerDemo::handleKick()
   tracking_status_ = BallTracker::NotFound;
   ball_follower_.clearBallPosition();
 
-  usleep(2000 * 1000);
+  rclcpp::sleep_for(std::chrono::milliseconds(2000));
 
   if (handleFallen(stand_state_) == true)
     return;
@@ -618,9 +628,9 @@ bool SoccerDemo::handleFallen(int fallen_status)
   }
 
   while(isActionRunning() == true)
-    usleep(100 * 1000);
+    rclcpp::sleep_for(std::chrono::milliseconds(100));
 
-  usleep(650 * 1000);
+  rclcpp::sleep_for(std::chrono::milliseconds(650));
 
   if (on_following_ball_ == true)
     restart_soccer_ = true;
@@ -663,23 +673,16 @@ bool SoccerDemo::isActionRunning()
   }
 
   auto future = is_running_client_->async_send_request(request);
-
-  try
+  if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) == rclcpp::FutureReturnCode::SUCCESS)
   {
     auto result = future.get();
-    if (result)
-    {
-      RCLCPP_INFO(this->get_logger(), "SoccerDemo::isActionRunning - is running : %d", result->is_running);
-      request_result = result->is_running;
-    }
-    else
-    {
-      RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed (no result)");
-    }
+    RCLCPP_INFO(this->get_logger(), "SoccerDemo::isActionRunning - is running : %d", result->is_running);
+    return result->is_running;
   }
-  catch(const std::exception& e)
+  else
   {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed: %s", e.what());
+    RCLCPP_ERROR(this->get_logger(), "Failed to get action status: Service call failed (no result)");
+    return true;
   }
 
   return request_result;
