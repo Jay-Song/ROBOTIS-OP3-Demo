@@ -22,26 +22,26 @@ namespace robotis_op
 {
 
 VisionDemo::VisionDemo()
-  : Node("vision_demo"),
+  : // Node("vision_demo"),
     SPIN_RATE(30),
     TIME_TO_INIT(10),
     tracking_status_(FaceTracker::Waiting)
 {
   enable_ = false;
 
-  // subscriber & publisher
-  module_control_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/enable_ctrl_module", 10);
-  motion_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
-  rgb_led_pub_ = this->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
-  face_tracking_command_pub_ = this->create_publisher<std_msgs::msg::Bool>("/face_tracking/command", 10);
+  // // subscriber & publisher
+  // module_control_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/enable_ctrl_module", 10);
+  // motion_index_pub_ = this->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
+  // rgb_led_pub_ = this->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
+  // face_tracking_command_pub_ = this->create_publisher<std_msgs::msg::Bool>("/face_tracking/command", 10);
 
-  button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&VisionDemo::buttonHandlerCallback, this, std::placeholders::_1));
-  faceCoord_sub_ = this->create_subscription<std_msgs::msg::Int32MultiArray>("/faceCoord", 10, std::bind(&VisionDemo::facePositionCallback, this, std::placeholders::_1));
+  // button_sub_ = this->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, std::bind(&VisionDemo::buttonHandlerCallback, this, std::placeholders::_1));
+  // faceCoord_sub_ = this->create_subscription<std_msgs::msg::Int32MultiArray>("/faceCoord", 10, std::bind(&VisionDemo::facePositionCallback, this, std::placeholders::_1));
 
-  set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
+  // set_joint_module_client_ = this->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
 
-  // Use timer for loop rate
-  create_wall_timer(std::chrono::duration<double>(1.0 / SPIN_RATE), std::bind(&VisionDemo::process, this));
+  // // Use timer for loop rate
+  // create_wall_timer(std::chrono::duration<double>(1.0 / SPIN_RATE), std::bind(&VisionDemo::process, this));
 }
 
 VisionDemo::~VisionDemo()
@@ -49,10 +49,30 @@ VisionDemo::~VisionDemo()
   // TODO Auto-generated destructor stub
 }
 
+void VisionDemo::setNode(rclcpp::Node::SharedPtr node)
+{
+  node_ = node;
+  if (node_ != nullptr)
+  {
+    faceCoord_sub_ = node_->create_subscription<std_msgs::msg::Int32MultiArray>("/faceCoord", 10, std::bind(&VisionDemo::facePositionCallback, this, std::placeholders::_1));
+  }
+  else
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "Node is not set");
+  }
+}
+
 void VisionDemo::setDemoEnable()
 {
   // set prev time for timer
   prev_time_ = rclcpp::Clock().now();
+
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "Node is not set, cannot set demo enable");
+    return;
+  }
+  auto face_tracking_command_pub_ = node_->create_publisher<std_msgs::msg::Bool>("/face_tracking/command", 10);
 
   // change to motion module
   setModuleToDemo("action_module");
@@ -72,7 +92,7 @@ void VisionDemo::setDemoEnable()
 
   face_tracker_.startTracking();
 
-  RCLCPP_INFO(this->get_logger(), "Start Vision Demo");
+  RCLCPP_INFO(rclcpp::get_logger("VisionDemo"), "Start Vision Demo");
 }
 
 void VisionDemo::setDemoDisable()
@@ -81,13 +101,25 @@ void VisionDemo::setDemoDisable()
   tracking_status_ = FaceTracker::Waiting;
   enable_ = false;
 
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "Node is not set, cannot set demo disable");
+    return;
+  }
+  auto face_tracking_command_pub_ = node_->create_publisher<std_msgs::msg::Bool>("/face_tracking/command", 10);
   std_msgs::msg::Bool command;
   command.data = enable_;
   face_tracking_command_pub_->publish(command);
+
+  if (faceCoord_sub_)
+    faceCoord_sub_.reset();
 }
 
 void VisionDemo::process()
 {
+  if (enable_ == false)
+    return;
+
   int tracking_status = face_tracker_.processTracking();
 
   switch(tracking_status)
@@ -120,57 +152,63 @@ void VisionDemo::process()
     tracking_status_ = tracking_status;
 }
 
-void VisionDemo::buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
-{
-  if (enable_ == false)
-    return;
+// void VisionDemo::buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
+// {
+//   if (enable_ == false)
+//     return;
 
-  if (msg->data == "start")
-  {
+//   if (msg->data == "start")
+//   {
 
-  }
-  else if (msg->data == "mode")
-  {
+//   }
+//   else if (msg->data == "mode")
+//   {
 
-  }
-}
+//   }
+// }
 
-void VisionDemo::demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)
-{
-  if (enable_ == false)
-    return;
+// void VisionDemo::demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)
+// {
+//   if (enable_ == false)
+//     return;
 
-  if (msg->data == "start")
-  {
+//   if (msg->data == "start")
+//   {
 
-  }
-  else if (msg->data == "stop")
-  {
+//   }
+//   else if (msg->data == "stop")
+//   {
 
-  }
-}
+//   }
+// }
 
 void VisionDemo::setModuleToDemo(const std::string &module_name)
 {
   callServiceSettingModule(module_name);
-  RCLCPP_INFO(this->get_logger(), "VisionDemo::setModuleToDemo - enable module : %s", module_name.c_str());
+  RCLCPP_INFO(rclcpp::get_logger("VisionDemo"), "VisionDemo::setModuleToDemo - enable module : %s", module_name.c_str());
 }
 
 void VisionDemo::callServiceSettingModule(const std::string &module_name)
 {
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "VisionDemo::callServiceSettingModule - Node is not set, cannot call service");
+    return;
+  }
+  auto set_joint_module_client_ = node_->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
   auto request = std::make_shared<robotis_controller_msgs::srv::SetModule::Request>();
   request->module_name = module_name;
 
   if (!set_joint_module_client_->wait_for_service(std::chrono::seconds(1)))
   {
-    RCLCPP_ERROR(this->get_logger(), "VisionDemo::callServiceSettingModule - Service not available");
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "VisionDemo::callServiceSettingModule - Service not available");
     return;
   }
 
   auto future = set_joint_module_client_->async_send_request(request,
       [this, module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result) 
       {
-        RCLCPP_INFO(this->get_logger(), "VisionDemo::callServiceSettingModule(%s) - result : %d", module_name.c_str(), result.get()->result);
+        RCLCPP_INFO(rclcpp::get_logger("VisionDemo"), "VisionDemo::callServiceSettingModule(%s) - result : %d", module_name.c_str(), result.get()->result);
       });
 }
 
@@ -200,6 +238,12 @@ void VisionDemo::facePositionCallback(const std_msgs::msg::Int32MultiArray::Shar
 
 void VisionDemo::playMotion(int motion_index)
 {
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "Node is not set, cannot play motion");
+    return;
+  }
+  auto motion_index_pub_ = node_->create_publisher<std_msgs::msg::Int32>("/robotis/action/page_num", 10);
   std_msgs::msg::Int32 motion_msg;
   motion_msg.data = motion_index;
 
@@ -208,6 +252,12 @@ void VisionDemo::playMotion(int motion_index)
 
 void VisionDemo::setRGBLED(int blue, int green, int red)
 {
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "Node is not set, cannot set RGB LED");
+    return;
+  }
+  auto rgb_led_pub_ = node_->create_publisher<robotis_controller_msgs::msg::SyncWriteItem>("/robotis/sync_write_item", 10);
   int led_full_unit = 0x1F;
   int led_value = (blue & led_full_unit) << 10 | (green & led_full_unit) << 5 | (red & led_full_unit);
   robotis_controller_msgs::msg::SyncWriteItem syncwrite_msg;

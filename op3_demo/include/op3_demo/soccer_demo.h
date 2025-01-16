@@ -39,7 +39,7 @@
 namespace robotis_op
 {
 
-class SoccerDemo : public OPDemo, public rclcpp::Node
+class SoccerDemo : public OPDemo
 {
  public:
   enum Stand_Status
@@ -64,15 +64,22 @@ class SoccerDemo : public OPDemo, public rclcpp::Node
   void setDemoEnable();
   void setDemoDisable();
 
+  void process();
+
+  rclcpp::Node::SharedPtr node_;
+  void setNode(rclcpp::Node::SharedPtr node);
+  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
+  void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+
  protected:
   const double FALL_FORWARD_LIMIT;
   const double FALL_BACK_LIMIT;
   const int SPIN_RATE;
   const bool DEBUG_PRINT;
 
-  void processThread();
-  void callbackThread();
-  void trackingThread();
+  // void processThread();
+  // void callbackThread();
+  // void trackingThread();
 
   void setBodyModuleToDemo(const std::string &body_module, bool with_head_control = true);
   void setModuleToDemo(const std::string &module_name);
@@ -82,14 +89,12 @@ class SoccerDemo : public OPDemo, public rclcpp::Node
   bool getIDFromJointName(const std::string &joint_name, int &id);
   int getJointCount();
   bool isHeadJoint(const int &id);
-  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
-  void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+
   void imuDataCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   void startSoccerMode();
   void stopSoccerMode();
 
-  void process();
   void handleKick(int ball_position);
   void handleKick();
   bool handleFallen(int fallen_status);
@@ -102,18 +107,19 @@ class SoccerDemo : public OPDemo, public rclcpp::Node
 
   BallTracker ball_tracker_;
   BallFollower ball_follower_;
-
-  rclcpp::Publisher<robotis_controller_msgs::msg::JointCtrlModule>::SharedPtr module_control_pub_;
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
-  rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr rgb_led_pub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr demo_command_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_data_sub_;
 
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr test_pub_;
+  // rclcpp::Publisher<robotis_controller_msgs::msg::JointCtrlModule>::SharedPtr module_control_pub_;
+  // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  // rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr rgb_led_pub_;
+  // rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
+  // rclcpp::Subscription<std_msgs::msg::String>::SharedPtr demo_command_sub_;
+  // rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_data_sub_;
 
-  rclcpp::Client<op3_action_module_msgs::srv::IsRunning>::SharedPtr is_running_client_;
-  rclcpp::Client<robotis_controller_msgs::srv::SetJointModule>::SharedPtr set_joint_module_client_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr test_pub_;
+
+  // rclcpp::Client<op3_action_module_msgs::srv::IsRunning>::SharedPtr is_running_client_;
+  // rclcpp::Client<robotis_controller_msgs::srv::SetJointModule>::SharedPtr set_joint_module_client_;
 
   std::map<int, std::string> id_joint_table_;
   std::map<std::string, int> joint_id_table_;
@@ -132,8 +138,9 @@ class SoccerDemo : public OPDemo, public rclcpp::Node
   int stand_state_;
   double present_pitch_;
 
-  std::thread process_thread_;
-  std::thread tracking_thread_;
+  // std::unique_ptr<std::thread> spin_thread_;
+  // std::thread process_thread_;
+  // std::thread tracking_thread_;
 };
 
 }  // namespace robotis_op

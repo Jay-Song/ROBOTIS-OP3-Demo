@@ -41,8 +41,8 @@ void playSound(const std::string &path);
 void setLED(int led);
 bool checkManagerRunning(std::string& manager_name);
 void dxlTorqueChecker();
-
 void demoModeCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
 
 const int SPIN_RATE = 30;
 const bool DEBUG_PRINT = false;
@@ -53,11 +53,15 @@ rclcpp::Publisher<robotis_controller_msgs::msg::SyncWriteItem>::SharedPtr led_pu
 rclcpp::Publisher<std_msgs::msg::String>::SharedPtr dxl_torque_pub;
 
 std::string default_mp3_path = "";
-int current_status = Ready;
-int desired_status = Ready;
+Demo_Status current_status = Ready;
+Demo_Status desired_status = Ready;
 bool apply_desired = false;
 
 rclcpp::Node::SharedPtr node;
+std::shared_ptr<robotis_op::SoccerDemo> soccer_demo;
+std::shared_ptr<robotis_op::ActionDemo> action_demo;
+std::shared_ptr<robotis_op::VisionDemo> vision_demo;
+std::shared_ptr<robotis_op::OPDemo> current_demo;
 
 //node main
 int main(int argc, char **argv)
@@ -74,31 +78,36 @@ int main(int argc, char **argv)
 
   auto button_sub = node->create_subscription<std_msgs::msg::String>("/robotis/open_cr/button", 10, buttonHandlerCallback);
   auto mode_command_sub = node->create_subscription<std_msgs::msg::String>("/robotis/mode_command", 10, demoModeCommandCallback);
+  auto demo_command_sub = node->create_subscription<std_msgs::msg::String>("/robotis/demo_command", 10, demoCommandCallback);
 
   RCLCPP_WARN(node->get_logger(), "Demo node started");
 
-  //create ros wrapper object
-  robotis_op::OPDemo *current_demo = NULL;
-  robotis_op::SoccerDemo *soccer_demo = new robotis_op::SoccerDemo();
-  robotis_op::ActionDemo *action_demo = new robotis_op::ActionDemo();
-  robotis_op::VisionDemo *vision_demo = new robotis_op::VisionDemo();
-
   default_mp3_path = ament_index_cpp::get_package_share_directory("op3_demo") + "/data/mp3/";
 
-  rclcpp::Rate loop_rate(SPIN_RATE);
+  //create demo instance
+  soccer_demo = std::make_shared<robotis_op::SoccerDemo>();
+  action_demo = std::make_shared<robotis_op::ActionDemo>();
+  vision_demo = std::make_shared<robotis_op::VisionDemo>();
 
-  RCLCPP_WARN(node->get_logger(), "Demo node loop start");
-  // wait for starting of manager
+  // set node
+  soccer_demo->setNode(node);
+  action_demo->setNode(node);
+  vision_demo->setNode(node);
+
+  // connect imu callback
+  // auto imu_data_sub = node->create_subscription<sensor_msgs::msg::Imu>("/robotis/open_cr/imu", 10,
+  //                                                                     std::bind(&robotis_op::SoccerDemo::imuDataCallback, soccer_demo.get(), std::placeholders::_1));
+
+  // wait for manager
   std::string manager_name = "/op3_manager";
   while (rclcpp::ok())
   {
     rclcpp::sleep_for(std::chrono::seconds(1));
-
     if (checkManagerRunning(manager_name) == true)
     {
-      break;
       if (DEBUG_PRINT)
         RCLCPP_INFO(node->get_logger(), "Succeed to connect");
+      break;
     }
     RCLCPP_WARN(node->get_logger(), "Waiting for op3 manager");
   }
@@ -108,73 +117,61 @@ int main(int argc, char **argv)
   // turn on R/G/B LED
   setLED(0x01 | 0x02 | 0x04);
 
+  rclcpp::Rate loop_rate(SPIN_RATE);
+  RCLCPP_WARN(node->get_logger(), "Demo node loop start");
+
   //node loop
   while (rclcpp::ok())
   {
     // process
     if (apply_desired == true)
     {
+      if (current_demo)
+        current_demo->setDemoDisable();
+
       switch (desired_status)
       {
         case Ready:
-        {
-
-          if (current_demo != NULL)
-            current_demo->setDemoDisable();
-
-          current_demo = NULL;
-
+          current_demo.reset();
           goInitPose();
-
           if(DEBUG_PRINT)
             RCLCPP_INFO(node->get_logger(), "[Go to Demo READY!]");
           break;
-        }
 
         case SoccerDemo:
-        {
-          if (current_demo != NULL)
-            current_demo->setDemoDisable();
-
           current_demo = soccer_demo;
-          current_demo->setDemoEnable();
-
           if(DEBUG_PRINT)
             RCLCPP_INFO(node->get_logger(), "[Start] Soccer Demo");
           break;
-        }
 
         case VisionDemo:
-        {
-          if (current_demo != NULL)
-            current_demo->setDemoDisable();
-
           current_demo = vision_demo;
-          current_demo->setDemoEnable();
           if(DEBUG_PRINT)
             RCLCPP_INFO(node->get_logger(), "[Start] Vision Demo");
           break;
-        }
-        case ActionDemo:
-        {
-          if (current_demo != NULL)
-            current_demo->setDemoDisable();
 
+        case ActionDemo:
           current_demo = action_demo;
-          current_demo->setDemoEnable();
           if(DEBUG_PRINT)
             RCLCPP_INFO(node->get_logger(), "[Start] Action Demo");
           break;
-        }
-
-        default:
-        {
-          break;
-        }
       }
 
+      if (current_demo)
+        current_demo->setDemoEnable();
       apply_desired = false;
       current_status = desired_status;
+    }
+
+    if (current_status == SoccerDemo && soccer_demo->isDemoEnabled() == true)
+    {
+      soccer_demo->process();
+    } else if (current_status == VisionDemo && vision_demo->isDemoEnabled() == true)
+    {
+      vision_demo->process();
+    } else if (current_status == ActionDemo && action_demo->isDemoEnabled() == true)
+    {
+      action_demo->process();
     }
 
     //execute pending callbacks
@@ -193,6 +190,11 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if(apply_desired == true)
     return;
+
+  if (current_status == SoccerDemo && soccer_demo->isDemoEnabled() == true)
+    soccer_demo->buttonHandlerCallback(msg);
+  else if (current_status == ActionDemo && action_demo->isDemoEnabled() == true)
+    action_demo->buttonHandlerCallback(msg);
 
   // in the middle of playing demo
   if (current_status != Ready)
@@ -218,7 +220,7 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
     if (msg->data == "start")
     {
       // select current demo
-      desired_status = (desired_status == Ready) ? desired_status + 1 : desired_status;
+      desired_status = (desired_status == Ready) ? static_cast<Demo_Status>(desired_status + 1) : desired_status;
       apply_desired = true;
 
       // sound out desired status
@@ -249,8 +251,8 @@ void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg)
     else if (msg->data == "mode")
     {
       // change to next demo
-      desired_status = (desired_status + 1) % DemoCount;
-      desired_status = (desired_status == Ready) ? desired_status + 1 : desired_status;
+      desired_status = static_cast<Demo_Status>((desired_status + 1) % DemoCount);
+      desired_status = (desired_status == Ready) ? static_cast<Demo_Status>(desired_status + 1) : desired_status;
 
       // sound out desired status and changing LED
       switch (desired_status)
@@ -284,7 +286,6 @@ void goInitPose()
 {
   std_msgs::msg::String init_msg;
   init_msg.data = "ini_pose";
-
   init_pose_pub->publish(init_msg);
 }
 
@@ -292,7 +293,6 @@ void playSound(const std::string &path)
 {
   std_msgs::msg::String sound_msg;
   sound_msg.data = path;
-
   play_sound_pub->publish(sound_msg);
 }
 
@@ -302,7 +302,6 @@ void setLED(int led)
   syncwrite_msg.item_name = "LED";
   syncwrite_msg.joint_name.push_back("open-cr");
   syncwrite_msg.value.push_back(led);
-
   led_pub->publish(syncwrite_msg);
 }
 
@@ -324,7 +323,6 @@ void dxlTorqueChecker()
 {
   std_msgs::msg::String check_msg;
   check_msg.data = "check";
-
   dxl_torque_pub->publish(check_msg);
 }
 
@@ -380,4 +378,12 @@ void demoModeCommandCallback(const std_msgs::msg::String::SharedPtr msg)
         RCLCPP_INFO(node->get_logger(), "= Start Demo Mode : %d", desired_status);
     }
   }
+}
+
+void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)
+{
+  if (current_status == SoccerDemo && soccer_demo->isDemoEnabled() == true)
+    soccer_demo->demoCommandCallback(msg);
+  else if (current_status == ActionDemo && action_demo->isDemoEnabled() == true)
+    action_demo->demoCommandCallback(msg);
 }

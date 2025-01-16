@@ -36,7 +36,7 @@ namespace robotis_op
 {
 
 // head tracking for looking the ball
-class BallTracker : public rclcpp::Node
+class BallTracker //: public rclcpp::Node
 {
 public:
   enum TrackingStatus
@@ -72,6 +72,9 @@ public:
     return current_ball_bottom_;
   }
 
+  rclcpp::Node::SharedPtr node_;
+  void setNode(rclcpp::Node::SharedPtr node);
+
 protected:
   const double FOV_WIDTH;
   const double FOV_HEIGHT;
@@ -80,22 +83,22 @@ protected:
   const bool DEBUG_PRINT;
 
   void ballPositionCallback(const op3_ball_detector_msgs::msg::CircleSetStamped::SharedPtr msg);
-  void ballTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+  // void ballTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg);
   void publishHeadJoint(double pan, double tilt);
   void scanBall();
 
   //image publisher/subscriber
-  rclcpp::Publisher<robotis_controller_msgs::msg::JointCtrlModule>::SharedPtr module_control_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_offset_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
+  // rclcpp::Publisher<robotis_controller_msgs::msg::JointCtrlModule>::SharedPtr module_control_pub_;
+  // rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_offset_pub_;
+  // rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
 
   //  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr error_pub_;
 
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
 
   rclcpp::Subscription<op3_ball_detector_msgs::msg::CircleSetStamped>::SharedPtr ball_position_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ball_tracking_command_sub_;
+  // rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ball_tracking_command_sub_;
 
   // (x, y) is the center position of the ball in image coordinates
   // z is the ball radius
