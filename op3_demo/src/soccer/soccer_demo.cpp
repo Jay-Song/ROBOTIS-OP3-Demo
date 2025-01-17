@@ -381,13 +381,8 @@ void SoccerDemo::setModuleToDemo(const std::string &module_name)
 
 void SoccerDemo::callServiceSettingModule(const robotis_controller_msgs::msg::JointCtrlModule &modules)
 {
-  if (node_ == nullptr)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("SoccerDemo"), "Node is not set, cannot call service");
-    return;
-  }
-
-  auto set_joint_module_client_ = node_->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
+  auto temp_node = rclcpp::Node::make_shared("soccer_call_service");
+  auto set_joint_module_client_ = temp_node->create_client<robotis_controller_msgs::srv::SetJointModule>("/robotis/set_present_joint_ctrl_modules");
   auto request = std::make_shared<robotis_controller_msgs::srv::SetJointModule::Request>();
   request->joint_name = modules.joint_name;
   request->module_name = modules.module_name;
@@ -744,13 +739,8 @@ void SoccerDemo::setRGBLED(int blue, int green, int red)
 // check running of action
 bool SoccerDemo::isActionRunning()
 {
-  if (node_ == nullptr)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("SoccerDemo"), "Node is not set, cannot check action status");
-    return true;
-  }
-
-  auto is_running_client_ = node_->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
+  auto temp_node = rclcpp::Node::make_shared("soccer_is_running");
+  auto is_running_client_ = temp_node->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
   auto request = std::make_shared<op3_action_module_msgs::srv::IsRunning::Request>();
   bool request_result = true;
 
@@ -760,7 +750,7 @@ bool SoccerDemo::isActionRunning()
   }
 
   auto future = is_running_client_->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(node_, future) == rclcpp::FutureReturnCode::SUCCESS)
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
   {
     auto result = future.get();
     RCLCPP_INFO(rclcpp::get_logger("SoccerDemo"), "SoccerDemo::isActionRunning - is running : %d", result->is_running);

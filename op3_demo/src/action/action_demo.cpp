@@ -343,24 +343,20 @@ void ActionDemo::brakeAction()
 // check running of action
 bool ActionDemo::isActionRunning()
 {
-  if (node_ == nullptr)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("ActionDemo"), "Node is not set, cannot check action status");
-    return true;
-  }
+  auto temp_node = rclcpp::Node::make_shared("action_is_running");
 
-  auto is_running_client_ = node_->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
+  auto temp_is_running_client_ = temp_node->create_client<op3_action_module_msgs::srv::IsRunning>("/robotis/action/is_running");
   auto request = std::make_shared<op3_action_module_msgs::srv::IsRunning::Request>();
   bool request_result = true;
 
-  if (!is_running_client_->wait_for_service(std::chrono::seconds(1)))
+  if (!temp_is_running_client_->wait_for_service(std::chrono::seconds(1)))
   {
     RCLCPP_ERROR(rclcpp::get_logger("ActionDemo"), "Failed to get action status: Service not available");
     return request_result;
   }
 
-  auto future = is_running_client_->async_send_request(request);
-  if (rclcpp::spin_until_future_complete(node_, future) == rclcpp::FutureReturnCode::SUCCESS)
+  auto future = temp_is_running_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
   {
     auto result = future.get();
     RCLCPP_INFO(rclcpp::get_logger("ActionDemo"), "ActionDemo::isActionRunning - is running : %d", result->is_running);
@@ -420,22 +416,18 @@ void ActionDemo::setModuleToDemo(const std::string &module_name)
 
 void ActionDemo::callServiceSettingModule(const std::string &module_name)
 {
-  if (node_ == nullptr)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("ActionDemo"), "Node is not set, cannot call service");
-    return;
-  }
-  auto set_joint_module_client_ = node_->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
+  auto temp_node = rclcpp::Node::make_shared("action_call_service");
+  auto temp_set_joint_module_client_ = temp_node->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
   auto set_module_srv = std::make_shared<robotis_controller_msgs::srv::SetModule::Request>();
   set_module_srv->module_name = module_name;
 
-  if (!set_joint_module_client_->wait_for_service(std::chrono::seconds(1)))
+  if (!temp_set_joint_module_client_->wait_for_service(std::chrono::seconds(1)))
   {
     RCLCPP_ERROR(rclcpp::get_logger("ActionDemo"), "Failed to set module");
     return;
   }
 
-  auto future = set_joint_module_client_->async_send_request(set_module_srv,
+  auto future = temp_set_joint_module_client_->async_send_request(set_module_srv,
       [this, module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result)
       {
         RCLCPP_INFO(rclcpp::get_logger("ActionDemo"), "ActionDemo::callServiceSettingModule(%s) : result : %d", module_name.c_str(), result.get()->result);

@@ -367,12 +367,8 @@ void BallFollower::setWalkingParam(double x_move, double y_move, double rotation
 
 bool BallFollower::getWalkingParam()
 {
-  if (node_ == nullptr)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Node is not set, cannot get walking parameters");
-    return false;
-  }
-  auto get_walking_param_client_ = node_->create_client<op3_walking_module_msgs::srv::GetWalkingParam>("/robotis/walking/get_params");
+  auto temp_node = rclcpp::Node::make_shared("ballfollower_get_walking_param");
+  auto get_walking_param_client_ = temp_node->create_client<op3_walking_module_msgs::srv::GetWalkingParam>("/robotis/walking/get_params");
   auto request = std::make_shared<op3_walking_module_msgs::srv::GetWalkingParam::Request>();
 
   if (!get_walking_param_client_->wait_for_service(std::chrono::seconds(1)))

@@ -190,12 +190,8 @@ void VisionDemo::setModuleToDemo(const std::string &module_name)
 
 void VisionDemo::callServiceSettingModule(const std::string &module_name)
 {
-  if (node_ == nullptr)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("VisionDemo"), "VisionDemo::callServiceSettingModule - Node is not set, cannot call service");
-    return;
-  }
-  auto set_joint_module_client_ = node_->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
+  auto temp_node = std::make_shared<rclcpp::Node>("vision_call_service");
+  auto set_joint_module_client_ = temp_node->create_client<robotis_controller_msgs::srv::SetModule>("/robotis/set_present_ctrl_modules");
   auto request = std::make_shared<robotis_controller_msgs::srv::SetModule::Request>();
   request->module_name = module_name;
 
