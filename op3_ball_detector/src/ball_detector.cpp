@@ -589,7 +589,7 @@ void BallDetector::resetParameter()
       return;
     }
 
-    YAML::Node doc = config[node_name]["ros__parameters"];
+    YAML::Node doc = config["/**"]["ros__parameters"];
 
     // parse
     params_config_.gaussian_blur_size = doc["gaussian_blur_size"].as<int>();

@@ -23,7 +23,6 @@
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
   <depend>boost</depend>  
-  <depend>opencv3</depend>
   <depend>yaml-cpp</depend>
   <depend>op3_ball_detector_msgs</depend>
   <depend>ament_index_cpp</depend>
