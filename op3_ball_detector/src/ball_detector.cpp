@@ -697,6 +697,12 @@ void BallDetector::saveConfig()
 
   try
   {
+    auto format_double = [](double d) -> std::string {
+      std::ostringstream ss;
+      ss << std::fixed << std::setprecision(1) << d;
+      return ss.str();
+    };
+
     YAML::Emitter yaml_out;
 
     yaml_out << YAML::BeginMap;
@@ -705,11 +711,11 @@ void BallDetector::saveConfig()
     yaml_out << YAML::Key << "ros__parameters"; // ROS 2 parameters section
     yaml_out << YAML::Value << YAML::BeginMap;  // Start parameters map
     yaml_out << YAML::Key << "gaussian_blur_size" << YAML::Value << params_config_.gaussian_blur_size;
-    yaml_out << YAML::Key << "gaussian_blur_sigma" << YAML::Value << params_config_.gaussian_blur_sigma;
-    yaml_out << YAML::Key << "canny_edge_th" << YAML::Value << params_config_.canny_edge_th;
-    yaml_out << YAML::Key << "hough_accum_resolution" << YAML::Value << params_config_.hough_accum_resolution;
-    yaml_out << YAML::Key << "min_circle_dist" << YAML::Value << params_config_.min_circle_dist;
-    yaml_out << YAML::Key << "hough_accum_th" << YAML::Value << params_config_.hough_accum_th;
+    yaml_out << YAML::Key << "gaussian_blur_sigma" << YAML::Value << format_double(params_config_.gaussian_blur_sigma);
+    yaml_out << YAML::Key << "canny_edge_th" << YAML::Value << format_double(params_config_.canny_edge_th);
+    yaml_out << YAML::Key << "hough_accum_resolution" << YAML::Value << format_double(params_config_.hough_accum_resolution);
+    yaml_out << YAML::Key << "min_circle_dist" << YAML::Value << format_double(params_config_.min_circle_dist);
+    yaml_out << YAML::Key << "hough_accum_th" << YAML::Value << format_double(params_config_.hough_accum_th);
     yaml_out << YAML::Key << "min_radius" << YAML::Value << params_config_.min_radius;
     yaml_out << YAML::Key << "max_radius" << YAML::Value << params_config_.max_radius;
     yaml_out << YAML::Key << "filter_h_min" << YAML::Value << params_config_.filter_threshold.h_min;
