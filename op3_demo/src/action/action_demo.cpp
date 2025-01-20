@@ -104,7 +104,8 @@ void ActionDemo::process()
         // play
         bool result_play = playActionWithSound(play_list_.at(play_index_));
 
-        RCLCPP_INFO(rclcpp::get_logger("ActionDemo"), "Fail to play action script.");
+        if (result_play == false)
+          RCLCPP_INFO(rclcpp::get_logger("ActionDemo"), "Fail to play action script.");
 
         // add play index
         int index_to_play = (play_index_ + 1) % play_list_.size();
@@ -427,11 +428,11 @@ void ActionDemo::callServiceSettingModule(const std::string &module_name)
     return;
   }
 
-  auto future = temp_set_joint_module_client_->async_send_request(set_module_srv,
-      [this, module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result)
-      {
-        RCLCPP_INFO(rclcpp::get_logger("ActionDemo"), "ActionDemo::callServiceSettingModule(%s) : result : %d", module_name.c_str(), result.get()->result);
-      });
+  auto future = temp_set_joint_module_client_->async_send_request(set_module_srv);
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_INFO(rclcpp::get_logger("ActionDemo"), "ActionDemo::callServiceSettingModule(%s) : result : %d", module_name.c_str(), future.get()->result);
+  }
 }
 
 void ActionDemo::demoCommandCallback(const std_msgs::msg::String::SharedPtr msg)

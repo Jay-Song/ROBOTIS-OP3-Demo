@@ -392,11 +392,11 @@ void SoccerDemo::callServiceSettingModule(const robotis_controller_msgs::msg::Jo
     return;
   }
 
-  auto future = set_joint_module_client_->async_send_request(request,
-      [this, modules](rclcpp::Client<robotis_controller_msgs::srv::SetJointModule>::SharedFuture result)
-      {
-        RCLCPP_INFO(rclcpp::get_logger("SoccerDemo"), "[SoccerDemo::callServiceSettingModule] result : %d", result.get()->result);
-      });
+  auto future = set_joint_module_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_INFO(rclcpp::get_logger("SoccerDemo"), "SoccerDemo::callServiceSettingModule(%s) : result : %d", modules.module_name[0].c_str(), future.get()->result);
+  }
 }
 
 void SoccerDemo::parseJointNameFromYaml(const std::string &path)

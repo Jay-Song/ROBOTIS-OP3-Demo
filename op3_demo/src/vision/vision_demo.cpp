@@ -201,11 +201,11 @@ void VisionDemo::callServiceSettingModule(const std::string &module_name)
     return;
   }
 
-  auto future = set_joint_module_client_->async_send_request(request,
-      [this, module_name](rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedFuture result) 
-      {
-        RCLCPP_INFO(rclcpp::get_logger("VisionDemo"), "VisionDemo::callServiceSettingModule(%s) - result : %d", module_name.c_str(), result.get()->result);
-      });
+  auto future = set_joint_module_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
+  {
+    RCLCPP_INFO(rclcpp::get_logger("VisionDemo"), "VisionDemo::callServiceSettingModule - result : %d", future.get()->result);
+  }
 }
 
 void VisionDemo::facePositionCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
