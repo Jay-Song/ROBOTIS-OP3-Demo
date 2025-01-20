@@ -573,17 +573,11 @@ void BallDetector::resetParameter()
 
     std::string node_name;
     // check node name
-    // if (config[this->get_name()])
-    //   node_name = this->get_name();
-    // else if (config["/**"])
-    //   node_name = "/**";
-    // else
-    // {
-    //   RCLCPP_ERROR(this->get_logger(), "Node name '%s' or /** not found in YAML file.", this->get_name());
-    //   return;
-    // }
-
-    if (!config["/**"])
+    if (config[this->get_name()])
+      node_name = this->get_name();
+    else if (config["/**"])
+      node_name = "/**";
+    else
     {
       RCLCPP_ERROR(this->get_logger(), "Node name '%s' or /** not found in YAML file.", this->get_name());
       return;
