@@ -377,21 +377,22 @@ bool BallFollower::getWalkingParam()
     return false;
   }
 
-  auto future = get_walking_param_client_->async_send_request(request,
-      [this](rclcpp::Client<op3_walking_module_msgs::srv::GetWalkingParam>::SharedFuture result)
-      {
-        if (result.get())
-        {
-          current_walking_param_ = result.get()->parameters;
+  auto future = get_walking_param_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
+  {
+    auto result = future.get();
+    if (result)
+    {
+      current_walking_param_ = result->parameters;
 
-          if (DEBUG_PRINT)
-            RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Get walking parameters");
-        }
-        else
-        {
-          RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Fail to get walking parameters.");
-        }
-      });
+      if (DEBUG_PRINT)
+        RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Get walking parameters");
+    }
+    else
+    {
+      RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Fail to get walking parameters.");
+    }
+  }
 
   return true;
 }
