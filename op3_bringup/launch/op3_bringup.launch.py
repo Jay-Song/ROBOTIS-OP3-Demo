@@ -21,7 +21,7 @@ def generate_launch_description():
       'video_device': '/dev/video0',
       'image_width': 1280,
       'image_height': 720,
-      'framerate': 30,
+      'framerate': 30.0,
       'camera_frame_id': 'cam_link',
       'camera_name': 'camera'
     }]
