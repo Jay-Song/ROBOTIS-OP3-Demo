@@ -40,7 +40,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "op3_ball_detector/ball_detector_config.h"
-#include "op3_ball_detector/detector_params_config.h"
+//#include "op3_ball_detector/detector_params_config.h"
 
 namespace robotis_op
 {
