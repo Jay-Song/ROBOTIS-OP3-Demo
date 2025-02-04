@@ -38,7 +38,7 @@ std::string param_names[23] = {
   "filter_s_max", 
   "filter_v_min", 
   "filter_v_max", 
-  "use_second_filter" 
+  "use_second_filter",
   "filter2_h_min", 
   "filter2_h_max", 
   "filter2_s_min", 
@@ -620,9 +620,9 @@ void BallDetector::resetParameter()
     saveConfig();
 
     publishParam();
-  } catch (const std::exception& e)
+  } catch (const YAML::Exception& e)
   {
-    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to Get default parameters : " << default_setting_path_);
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Failed to Get default parameters : " << default_setting_path_ << " - " << e.what());
     return;
   }
 }
