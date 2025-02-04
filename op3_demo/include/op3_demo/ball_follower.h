@@ -37,7 +37,7 @@ namespace robotis_op
 {
 
 // following the ball using walking
-class BallFollower : public rclcpp::Node
+class BallFollower // : public rclcpp::Node
 {
  public:
   enum
@@ -71,6 +71,9 @@ class BallFollower : public rclcpp::Node
     return (approach_ball_position_ == OnRight || approach_ball_position_ == OnLeft);
   }
 
+  rclcpp::Node::SharedPtr node_;
+  void setNode(rclcpp::Node::SharedPtr node);
+
  protected:
   const bool DEBUG_PRINT;
   const double CAMERA_HEIGHT;
@@ -97,17 +100,17 @@ class BallFollower : public rclcpp::Node
                     double& fb_move, double& rl_angle);
 
   //image publisher/subscriber
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
-  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr set_walking_command_pub_;
-  rclcpp::Publisher<op3_walking_module_msgs::msg::WalkingParam>::SharedPtr set_walking_param_pub_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
+  // rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr head_joint_pub_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr head_scan_pub_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr set_walking_command_pub_;
+  // rclcpp::Publisher<op3_walking_module_msgs::msg::WalkingParam>::SharedPtr set_walking_param_pub_;
 
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
-  rclcpp::Client<op3_walking_module_msgs::srv::GetWalkingParam>::SharedPtr get_walking_param_client_;
+  // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  // rclcpp::Client<op3_walking_module_msgs::srv::GetWalkingParam>::SharedPtr get_walking_param_client_;
 
-  rclcpp::Subscription<op3_ball_detector_msgs::msg::CircleSetStamped>::SharedPtr ball_position_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ball_tracking_command_sub_;
+  // rclcpp::Subscription<op3_ball_detector_msgs::msg::CircleSetStamped>::SharedPtr ball_position_sub_;
+  // rclcpp::Subscription<std_msgs::msg::String>::SharedPtr ball_tracking_command_sub_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr current_joint_states_sub_;
 
   // (x, y) is the center position of the ball in image coordinates

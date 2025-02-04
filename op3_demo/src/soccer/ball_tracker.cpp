@@ -22,7 +22,7 @@ namespace robotis_op
 {
 
 BallTracker::BallTracker()
-  : Node("ball_tracker"),
+  : // Node("ball_tracker"),
     FOV_WIDTH(35.2 * M_PI / 180),
     FOV_HEIGHT(21.6 * M_PI / 180),
     NOT_FOUND_THRESHOLD(50),
@@ -38,28 +38,44 @@ BallTracker::BallTracker()
     tracking_status_(NotFound),
     DEBUG_PRINT(false)
 {
-  this->declare_parameter("p_gain", 0.4);
-  this->declare_parameter("i_gain", 0.0);
-  this->declare_parameter("d_gain", 0.0);
+  // this->declare_parameter("p_gain", 0.4);
+  // this->declare_parameter("i_gain", 0.0);
+  // this->declare_parameter("d_gain", 0.0);
 
-  this->get_parameter("p_gain", p_gain_);
-  this->get_parameter("i_gain", i_gain_);
-  this->get_parameter("d_gain", d_gain_);
+  // this->get_parameter("p_gain", p_gain_);
+  // this->get_parameter("i_gain", i_gain_);
+  // this->get_parameter("d_gain", d_gain_);
+  p_gain_ = 0.45;
+  i_gain_ = 0.0;
+  d_gain_ = 0.045;
 
-  RCLCPP_INFO(this->get_logger(), "Ball tracking Gain : %f, %f, %f", p_gain_, i_gain_, d_gain_);
+  RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "Ball tracking Gain : %f, %f, %f", p_gain_, i_gain_, d_gain_);
 
-  head_joint_offset_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states_offset", 10);
-  head_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states", 10);
-  head_scan_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/head_control/scan_command", 10);
+  // head_joint_offset_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states_offset", 10);
+  // head_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states", 10);
+  // head_scan_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/head_control/scan_command", 10);
   //  error_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/ball_tracker/errors", 10);
 
-  ball_position_sub_ = this->create_subscription<op3_ball_detector_msgs::msg::CircleSetStamped>("/ball_detector_node/circle_set", 10, std::bind(&BallTracker::ballPositionCallback, this, std::placeholders::_1));
-  ball_tracking_command_sub_ = this->create_subscription<std_msgs::msg::String>("/ball_tracker/command", 10, std::bind(&BallTracker::ballTrackerCommandCallback, this, std::placeholders::_1));
+  // ball_position_sub_ = this->create_subscription<op3_ball_detector_msgs::msg::CircleSetStamped>("/ball_detector_node/circle_set", 10, std::bind(&BallTracker::ballPositionCallback, this, std::placeholders::_1));
+  // ball_tracking_command_sub_ = this->create_subscription<std_msgs::msg::String>("/ball_tracker/command", 10, std::bind(&BallTracker::ballTrackerCommandCallback, this, std::placeholders::_1));
 }
 
 BallTracker::~BallTracker()
 {
 
+}
+
+void BallTracker::setNode(rclcpp::Node::SharedPtr node)
+{
+  node_ = node;
+  if (node_ != nullptr)
+  {
+    ball_position_sub_ = node_->create_subscription<op3_ball_detector_msgs::msg::CircleSetStamped>("/ball_detector_node/circle_set", 10, std::bind(&BallTracker::ballPositionCallback, this, std::placeholders::_1));
+  }
+  else
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallTracker"), "Node is not set");
+  }
 }
 
 void BallTracker::ballPositionCallback(const op3_ball_detector_msgs::msg::CircleSetStamped::SharedPtr msg)
@@ -73,30 +89,30 @@ void BallTracker::ballPositionCallback(const op3_ball_detector_msgs::msg::Circle
   }
 }
 
-void BallTracker::ballTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg)
-{
-  if (msg->data == "start")
-  {
-    startTracking();
-  }
-  else if (msg->data == "stop")
-  {
-    stopTracking();
-  }
-  else if (msg->data == "toggle_start")
-  {
-    if (on_tracking_ == false)
-      startTracking();
-    else
-      stopTracking();
-  }
-}
+// void BallTracker::ballTrackerCommandCallback(const std_msgs::msg::String::SharedPtr msg)
+// {
+//   if (msg->data == "start")
+//   {
+//     startTracking();
+//   }
+//   else if (msg->data == "stop")
+//   {
+//     stopTracking();
+//   }
+//   else if (msg->data == "toggle_start")
+//   {
+//     if (on_tracking_ == false)
+//       startTracking();
+//     else
+//       stopTracking();
+//   }
+// }
 
 void BallTracker::startTracking()
 {
   on_tracking_ = true;
   if (DEBUG_PRINT)
-    RCLCPP_INFO(this->get_logger(), "Start Ball tracking");
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "Start Ball tracking");
 }
 
 void BallTracker::stopTracking()
@@ -105,7 +121,7 @@ void BallTracker::stopTracking()
 
   on_tracking_ = false;
   if (DEBUG_PRINT)
-    RCLCPP_INFO(this->get_logger(), "Stop Ball tracking");
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "Stop Ball tracking");
 
   current_ball_pan_ = 0;
   current_ball_tilt_ = 0;
@@ -189,9 +205,9 @@ int BallTracker::processTracking()
 
   if (DEBUG_PRINT)
   {
-    RCLCPP_INFO(this->get_logger(), "--------------------------------------------------------------");
-    RCLCPP_INFO(this->get_logger(), "Ball position : %f | %f", ball_position_.x, ball_position_.y);
-    RCLCPP_INFO(this->get_logger(), "Target angle : %f | %f", (x_error * 180 / M_PI), (y_error * 180 / M_PI));
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "--------------------------------------------------------------");
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "Ball position : %f | %f", ball_position_.x, ball_position_.y);
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "Target angle : %f | %f", (x_error * 180 / M_PI), (y_error * 180 / M_PI));
   }
 
   rclcpp::Time curr_time = rclcpp::Clock().now();
@@ -218,11 +234,11 @@ int BallTracker::processTracking()
 
   if (DEBUG_PRINT)
   {
-    RCLCPP_INFO(this->get_logger(), "------------------------  %d  --------------------------------------", tracking_status);
-    RCLCPP_INFO(this->get_logger(), "error         : %f | %f", (x_error * 180 / M_PI), (y_error * 180 / M_PI));
-    RCLCPP_INFO(this->get_logger(), "error_diff    : %f | %f | %f", (x_error_diff * 180 / M_PI), (y_error_diff * 180 / M_PI), delta_time);
-    RCLCPP_INFO(this->get_logger(), "error_sum    : %f | %f", (x_error_sum_ * 180 / M_PI), (y_error_sum_ * 180 / M_PI));
-    RCLCPP_INFO(this->get_logger(), "error_target  : %f | %f | P : %f | D : %f | time : %f", (x_error_target * 180 / M_PI), (y_error_target * 180 / M_PI), p_gain_, d_gain_, delta_time);
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "------------------------  %d  --------------------------------------", tracking_status);
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "error         : %f | %f", (x_error * 180 / M_PI), (y_error * 180 / M_PI));
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "error_diff    : %f | %f | %f", (x_error_diff * 180 / M_PI), (y_error_diff * 180 / M_PI), delta_time);
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "error_sum    : %f | %f", (x_error_sum_ * 180 / M_PI), (y_error_sum_ * 180 / M_PI));
+    RCLCPP_INFO(rclcpp::get_logger("BallTracker"), "error_target  : %f | %f | P : %f | D : %f | time : %f", (x_error_target * 180 / M_PI), (y_error_target * 180 / M_PI), p_gain_, d_gain_, delta_time);
   }
 
   // move head joint
@@ -241,10 +257,17 @@ int BallTracker::processTracking()
 
 void BallTracker::publishHeadJoint(double pan, double tilt)
 {
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallTracker"), "Node is not set, cannot publish head joint");
+    return;
+  }
+
   double min_angle = 1 * M_PI / 180;
   if (fabs(pan) < min_angle && fabs(tilt) < min_angle)
     return;
 
+  auto head_joint_offset_pub_ = node_->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states_offset", 10);
   sensor_msgs::msg::JointState head_angle_msg;
 
   head_angle_msg.name.push_back("head_pan");
@@ -258,6 +281,12 @@ void BallTracker::publishHeadJoint(double pan, double tilt)
 
 void BallTracker::goInit()
 {
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallTracker"), "Node is not set, cannot go init");
+    return;
+  }
+  auto head_joint_pub_ = node_->create_publisher<sensor_msgs::msg::JointState>("/robotis/head_control/set_joint_states", 10);
   sensor_msgs::msg::JointState head_angle_msg;
 
   head_angle_msg.name.push_back("head_pan");
@@ -278,6 +307,12 @@ void BallTracker::scanBall()
   // ...
 
   // send message to head control module
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallTracker"), "Node is not set, cannot scan ball");
+    return;
+  }
+  auto head_scan_pub_ = node_->create_publisher<std_msgs::msg::String>("/robotis/head_control/scan_command", 10);
   std_msgs::msg::String scan_msg;
   scan_msg.data = "scan";
 

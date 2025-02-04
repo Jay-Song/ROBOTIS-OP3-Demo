@@ -47,14 +47,10 @@ class OPDemo
   {
   }
 
-  virtual void setDemoEnable()
-  {
-    enable_ = true;
-  }
-  virtual void setDemoDisable()
-  {
-    enable_ = false;
-  }
+  virtual void setDemoEnable() { enable_ = true; }
+  virtual void setDemoDisable() { enable_ = false; }
+
+  bool isDemoEnabled() { return enable_; }
 
  protected:
   bool enable_;

@@ -34,7 +34,7 @@
 namespace robotis_op
 {
 
-class ActionDemo : public OPDemo, public rclcpp::Node
+class ActionDemo : public OPDemo
 {
  public:
   ActionDemo();
@@ -42,6 +42,13 @@ class ActionDemo : public OPDemo, public rclcpp::Node
 
   void setDemoEnable();
   void setDemoDisable();
+
+  void process();
+
+  rclcpp::Node::SharedPtr node_;
+  void setNode(rclcpp::Node::SharedPtr node);
+  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
+  void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
 
  protected:
   enum ActionCommandIndex
@@ -61,16 +68,13 @@ class ActionDemo : public OPDemo, public rclcpp::Node
   const int SPIN_RATE;
   const bool DEBUG_PRINT;
 
-  void processThread();
-  void callbackThread();
+  // void processThread();
+  // void callbackThread();
 
-  void process();
   void startProcess(const std::string &set_name = "default");
   void resumeProcess();
   void pauseProcess();
   void stopProcess();
-
-  void handleStatus();
 
   void parseActionScript(const std::string &path);
   bool parseActionScriptSetName(const std::string &path, const std::string &set_name);
@@ -87,19 +91,17 @@ class ActionDemo : public OPDemo, public rclcpp::Node
 
   void setModuleToDemo(const std::string &module_name);
   void callServiceSettingModule(const std::string &module_name);
-  void actionSetNameCallback(const std_msgs::msg::String::SharedPtr msg);
-  void buttonHandlerCallback(const std_msgs::msg::String::SharedPtr msg);
-  void demoCommandCallback(const std_msgs::msg::String::SharedPtr msg);
+  // void actionSetNameCallback(const std_msgs::msg::String::SharedPtr msg);
 
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
-  rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr play_sound_pub_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr module_control_pub_;
+  // rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr motion_index_pub_;
+  // rclcpp::Publisher<std_msgs::msg::String>::SharedPtr play_sound_pub_;
 
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr demo_command_sub_;
+  // rclcpp::Subscription<std_msgs::msg::String>::SharedPtr button_sub_;
+  // rclcpp::Subscription<std_msgs::msg::String>::SharedPtr demo_command_sub_;
 
-  rclcpp::Client<op3_action_module_msgs::srv::IsRunning>::SharedPtr is_running_client_;
-  rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedPtr set_joint_module_client_;
+  // rclcpp::Client<op3_action_module_msgs::srv::IsRunning>::SharedPtr is_running_client_;
+  // rclcpp::Client<robotis_controller_msgs::srv::SetModule>::SharedPtr set_joint_module_client_;
 
   std::map<int, std::string> action_sound_table_;
   std::vector<int> play_list_;

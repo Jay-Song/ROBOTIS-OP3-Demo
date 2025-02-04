@@ -22,7 +22,7 @@ namespace robotis_op
 {
 
 BallFollower::BallFollower()
-  : Node("ball_follower"),
+  : // Node("ball_follower"),
     FOV_WIDTH(35.2 * M_PI / 180),
     FOV_HEIGHT(21.6 * M_PI / 180),
     count_not_found_(0),
@@ -51,12 +51,12 @@ BallFollower::BallFollower()
     accum_period_time_(0.0),
     DEBUG_PRINT(false)
 {
-  current_joint_states_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-      "/robotis/goal_joint_states", 10, std::bind(&BallFollower::currentJointStatesCallback, this, std::placeholders::_1));
+  // current_joint_states_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+  //     "/robotis/goal_joint_states", 10, std::bind(&BallFollower::currentJointStatesCallback, this, std::placeholders::_1));
 
-  set_walking_command_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/walking/command", 10);
-  set_walking_param_pub_ = this->create_publisher<op3_walking_module_msgs::msg::WalkingParam>("/robotis/walking/set_params", 10);
-  get_walking_param_client_ = this->create_client<op3_walking_module_msgs::srv::GetWalkingParam>("/robotis/walking/get_params");
+  // set_walking_command_pub_ = this->create_publisher<std_msgs::msg::String>("/robotis/walking/command", 10);
+  // set_walking_param_pub_ = this->create_publisher<op3_walking_module_msgs::msg::WalkingParam>("/robotis/walking/set_params", 10);
+  // get_walking_param_client_ = this->create_client<op3_walking_module_msgs::srv::GetWalkingParam>("/robotis/walking/get_params");
 
   prev_time_ = rclcpp::Clock().now();
 }
@@ -66,10 +66,24 @@ BallFollower::~BallFollower()
 
 }
 
+void BallFollower::setNode(rclcpp::Node::SharedPtr node)
+{
+  node_ = node;
+  if (node_ != nullptr)
+  {
+    current_joint_states_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>(
+        "/robotis/goal_joint_states", 10, std::bind(&BallFollower::currentJointStatesCallback, this, std::placeholders::_1));
+  }
+  else
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Node is not set");
+  }
+}
+
 void BallFollower::startFollowing()
 {
   on_tracking_ = true;
-  RCLCPP_INFO(this->get_logger(), "Start Ball following");
+  RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Start Ball following");
 
   setWalkingCommand("start");
 
@@ -92,7 +106,7 @@ void BallFollower::stopFollowing()
   //  approach_ball_position_ = NotFound;
   count_to_kick_ = 0;
 //  accum_ball_position_ = 0;
-  RCLCPP_INFO(this->get_logger(), "Stop Ball following");
+  RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Stop Ball following");
 
   setWalkingCommand("stop");
 }
@@ -146,8 +160,8 @@ void BallFollower::calcFootstep(double target_distance, double target_angle, dou
   fb_move = fmax(fb_goal, MIN_FB_STEP);
   if (DEBUG_PRINT)
   {
-    RCLCPP_INFO(this->get_logger(), "distance to ball : %6.4f, fb : %6.4f, delta : %6.6f", target_distance, fb_move, delta_time);
-    RCLCPP_INFO(this->get_logger(), "==============================================");
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "distance to ball : %6.4f, fb : %6.4f, delta : %6.6f", target_distance, fb_move, delta_time);
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "==============================================");
   }
 
   // calc rl angle
@@ -178,7 +192,7 @@ bool BallFollower::processFollowing(double x_angle, double y_angle, double ball_
   // check of getting head joints angle
   if (current_tilt_ == -10 && current_pan_ == -10)
   {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get current angle of head joints.");
+    RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Failed to get current angle of head joints.");
     setWalkingCommand("stop");
 
     on_tracking_ = false;
@@ -188,9 +202,9 @@ bool BallFollower::processFollowing(double x_angle, double y_angle, double ball_
 
   if (DEBUG_PRINT)
   {
-    RCLCPP_INFO(this->get_logger(), "   ============== Head | Ball ==============   ");
-    RCLCPP_INFO(this->get_logger(), "== Head Pan : %f | Ball X : %f", (current_pan_ * 180 / M_PI), (x_angle * 180 / M_PI));
-    RCLCPP_INFO(this->get_logger(), "== Head Tilt : %f | Ball Y : %f", (current_tilt_ * 180 / M_PI), (y_angle * 180 / M_PI));
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "   ============== Head | Ball ==============   ");
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "== Head Pan : %f | Ball X : %f", (current_pan_ * 180 / M_PI), (x_angle * 180 / M_PI));
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "== Head Tilt : %f | Ball Y : %f", (current_tilt_ * 180 / M_PI), (y_angle * 180 / M_PI));
   }
 
   approach_ball_position_ = OutOfRange;
@@ -213,12 +227,12 @@ bool BallFollower::processFollowing(double x_angle, double y_angle, double ball_
 
     if (DEBUG_PRINT)
     {
-      RCLCPP_INFO(this->get_logger(), "head pan : %f | ball pan : %f", (current_pan_ * 180 / M_PI), (x_angle * 180 / M_PI));
-      RCLCPP_INFO(this->get_logger(), "head tilt : %f | ball tilt : %f", (current_tilt_ * 180 / M_PI), (y_angle * 180 / M_PI));
-      RCLCPP_INFO(this->get_logger(), "foot to kick : %f", ball_x_angle);
+      RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "head pan : %f | ball pan : %f", (current_pan_ * 180 / M_PI), (x_angle * 180 / M_PI));
+      RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "head tilt : %f | ball tilt : %f", (current_tilt_ * 180 / M_PI), (y_angle * 180 / M_PI));
+      RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "foot to kick : %f", ball_x_angle);
     }
 
-    RCLCPP_INFO(this->get_logger(), "In range [%d | %f]", count_to_kick_, ball_x_angle);
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "In range [%d | %f]", count_to_kick_, ball_x_angle);
 
     // ball queue
 //    if(ball_position_queue_.size() >= 5)
@@ -239,13 +253,13 @@ bool BallFollower::processFollowing(double x_angle, double y_angle, double ball_
       if (ball_x_angle > 0)
       {
         if (DEBUG_PRINT)
-          RCLCPP_INFO(this->get_logger(), "Ready to kick : left");  // left
+          RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Ready to kick : left");  // left
         approach_ball_position_ = OnLeft;
       }
       else
       {
         if (DEBUG_PRINT)
-          RCLCPP_INFO(this->get_logger(), "Ready to kick : right");  // right
+          RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Ready to kick : right");  // right
         approach_ball_position_ = OnRight;
       }
 
@@ -278,7 +292,7 @@ bool BallFollower::processFollowing(double x_angle, double y_angle, double ball_
   setWalkingParam(fb_move, 0, rl_angle);
 
   // for debug
-  //RCLCPP_INFO(this->get_logger(), "distance to ball : %6.4f, fb : %6.4f, delta : %6.6f", distance_to_ball, fb_move, delta_time);
+  //RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "distance to ball : %6.4f, fb : %6.4f, delta : %6.6f", distance_to_ball, fb_move, delta_time);
 
   return false;
 }
@@ -310,6 +324,12 @@ void BallFollower::waitFollowing()
 
 void BallFollower::setWalkingCommand(const std::string &command)
 {
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Node is not set, cannot set walking command");
+    return;
+  }
+
   // get param
   if (command == "start")
   {
@@ -317,12 +337,13 @@ void BallFollower::setWalkingCommand(const std::string &command)
     setWalkingParam(IN_PLACE_FB_STEP, 0, 0, true);
   }
 
+  auto set_walking_command_pub_ = node_->create_publisher<std_msgs::msg::String>("/robotis/walking/command", 10);
   std_msgs::msg::String _command_msg;
   _command_msg.data = command;
   set_walking_command_pub_->publish(_command_msg);
 
   if (DEBUG_PRINT)
-    RCLCPP_INFO(this->get_logger(), "Send Walking command : %s", command.c_str());
+    RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Send Walking command : %s", command.c_str());
 }
 
 void BallFollower::setWalkingParam(double x_move, double y_move, double rotation_angle, bool balance)
@@ -332,6 +353,12 @@ void BallFollower::setWalkingParam(double x_move, double y_move, double rotation
   current_walking_param_.y_move_amplitude = y_move + SPOT_RL_OFFSET;
   current_walking_param_.angle_move_amplitude = rotation_angle + SPOT_ANGLE_OFFSET;
 
+  if (node_ == nullptr)
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Node is not set, cannot set walking parameters");
+    return;
+  }
+  auto set_walking_param_pub_ = node_->create_publisher<op3_walking_module_msgs::msg::WalkingParam>("/robotis/walking/set_params", 10);
   set_walking_param_pub_->publish(current_walking_param_);
 
   current_x_move_ = x_move;
@@ -340,29 +367,32 @@ void BallFollower::setWalkingParam(double x_move, double y_move, double rotation
 
 bool BallFollower::getWalkingParam()
 {
+  auto temp_node = rclcpp::Node::make_shared("ballfollower_get_walking_param");
+  auto get_walking_param_client_ = temp_node->create_client<op3_walking_module_msgs::srv::GetWalkingParam>("/robotis/walking/get_params");
   auto request = std::make_shared<op3_walking_module_msgs::srv::GetWalkingParam::Request>();
 
   if (!get_walking_param_client_->wait_for_service(std::chrono::seconds(1)))
   {
-    RCLCPP_ERROR(this->get_logger(), "BallFollower::getWalkingParam - Service not available");
+    RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "BallFollower::getWalkingParam - Service not available");
     return false;
   }
 
-  auto future = get_walking_param_client_->async_send_request(request,
-      [this](rclcpp::Client<op3_walking_module_msgs::srv::GetWalkingParam>::SharedFuture result)
-      {
-        if (result.get())
-        {
-          current_walking_param_ = result.get()->parameters;
+  auto future = get_walking_param_client_->async_send_request(request);
+  if (rclcpp::spin_until_future_complete(temp_node, future) == rclcpp::FutureReturnCode::SUCCESS)
+  {
+    auto result = future.get();
+    if (result)
+    {
+      current_walking_param_ = result->parameters;
 
-          if (DEBUG_PRINT)
-            RCLCPP_INFO(this->get_logger(), "Get walking parameters");
-        }
-        else
-        {
-          RCLCPP_ERROR(this->get_logger(), "Fail to get walking parameters.");
-        }
-      });
+      if (DEBUG_PRINT)
+        RCLCPP_INFO(rclcpp::get_logger("BallFollower"), "Get walking parameters");
+    }
+    else
+    {
+      RCLCPP_ERROR(rclcpp::get_logger("BallFollower"), "Fail to get walking parameters.");
+    }
+  }
 
   return true;
 }
