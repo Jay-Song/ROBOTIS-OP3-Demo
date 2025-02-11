@@ -17,32 +17,17 @@ def generate_launch_description():
   urdf = {'robot_description' : robot_desc.decode('utf-8')}
 
   # # 패키지 경로 설정
-  # op3_description_pkg = get_package_share_directory('op3_description')
   op3_bringup_pkg = get_package_share_directory('op3_bringup')
   
-  # # URDF 파일 경로
-  # robot_description_content = Command(
-  #   ['xacro ', os.path.join(op3_description_pkg, 'urdf', 'robotis_op3.urdf.xacro')]
-  # )
-  
-  # print('robot_description_content:' + robot_description_content)
-
   # Launch description 구성
   return LaunchDescription([
-    # # 로봇 설명 파라미터 설정
-    # DeclareLaunchArgument(
-    #   'robot_description',
-    #   default_value=robot_description_content,
-    #   description='Robot description in URDF format'
-    # ),
-
     # joint_state_publisher 노드 설정
     Node(
-      package='joint_state_publisher',
-      executable='joint_state_publisher',
+      package='joint_state_publisher_gui',
+      executable='joint_state_publisher_gui',
       name='joint_state_publisher',
-      parameters=[{'use_gui': True}, urdf],
-      remappings=[('/source_list', '/robotis/present_joint_states')],
+      parameters=[{'use_gui': True}],
+      remappings=[('/joint_states', ['/robotis/present_joint_states'])]
     ),
     
     # robot_state_publisher 노드 설정
@@ -59,7 +44,7 @@ def generate_launch_description():
       package='rviz2',
       executable='rviz2',
       name='rviz2',
-      #arguments=['-d', os.path.join(op3_bringup_pkg, 'rviz', 'op3_bringup.rviz')],
+      arguments=['-d', os.path.join(op3_bringup_pkg, 'rviz', 'op3_bringup.rviz')],
       output='screen',
       parameters=[urdf],
     ),
