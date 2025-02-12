@@ -8,6 +8,7 @@ Panels:
         - /Status1
         - /RobotModel1/Description Topic1
         - /TF1
+        - /Imu1/Acceleration properties1
       Splitter Ratio: 0.49705880880355835
     Tree Height: 451
   - Class: rviz_common/Selection
@@ -261,8 +262,6 @@ Visualization Manager:
           Value: true
         r_sho_roll_link:
           Value: true
-        world:
-          Value: true
       Marker Scale: 0.20000000298023224
       Name: TF
       Show Arrows: false
@@ -299,15 +298,13 @@ Visualization Manager:
               r_sho_roll_link:
                 r_el_link:
                   {}
-        world:
-          {}
       Update Interval: 0
       Value: true
     - Acceleration properties:
         Acc. vector alpha: 0.20000000298023224
         Acc. vector color: 192; 97; 203
         Acc. vector scale: 1
-        Derotate acceleration: true
+        Derotate acceleration: false
         Enable acceleration: true
       Axes properties:
         Axes scale: 1

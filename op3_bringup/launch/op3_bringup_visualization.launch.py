@@ -1,51 +1,53 @@
-import os
-import subprocess
-
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
+from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import Node
-from launch.substitutions import Command
+
+from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
-  xacro = os.path.join(
-    get_package_share_directory('op3_description'),
-    'urdf',
-    'robotis_op3.urdf.xacro')
-  p = subprocess.Popen(['xacro', xacro], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  robot_desc, stderr = p.communicate()
-  urdf = {'robot_description' : robot_desc.decode('utf-8')}
+  ld = LaunchDescription()
 
-  # # 패키지 경로 설정
-  op3_bringup_pkg = get_package_share_directory('op3_bringup')
-  
-  # Launch description 구성
-  return LaunchDescription([
-    # joint_state_publisher 노드 설정
-    Node(
-      package='joint_state_publisher_gui',
-      executable='joint_state_publisher_gui',
-      name='joint_state_publisher',
-      parameters=[{'use_gui': True}],
-      remappings=[('/joint_states', ['/robotis/present_joint_states'])]
-    ),
-    
-    # robot_state_publisher 노드 설정
-    Node(
-      package='robot_state_publisher',
-      executable='robot_state_publisher',
-      name='robot_state_publisher',
-      remappings=[('/joint_states', '/robotis/present_joint_states')],
-      parameters=[urdf],
-    ),
+  op3_description_path = FindPackageShare('op3_description')
+  op3_urdf_path = PathJoinSubstitution([op3_description_path, 'urdf', 'robotis_op3.urdf.xacro'])
+  op3_description_content = ParameterValue(Command(['xacro ', op3_urdf_path]), value_type=str)
 
-    # Rviz 노드 설정
-    Node(
-      package='rviz2',
-      executable='rviz2',
-      name='rviz2',
-      arguments=['-d', os.path.join(op3_bringup_pkg, 'rviz', 'op3_bringup.rviz')],
-      output='screen',
-      parameters=[urdf],
-    ),
-  ])
+  op3_bringup_path = FindPackageShare('op3_bringup')
+  default_rviz_config_path = PathJoinSubstitution([op3_bringup_path, 'rviz', 'op3_bringup.rviz'])
+
+  # Launch description 
+  # joint_state_publisher 
+#   ld.add_action(Node(
+#     package='joint_state_publisher',
+#     executable='joint_state_publisher',
+#     parameters=[{'source_list': ['/robotis/present_joint_states']}],
+#     remappings=[('/joint_states', '/robotis/present_joint_states')])
+#   )
+
+  # joint_state_publisher_gui
+  ld.add_action(Node(
+    package='joint_state_publisher_gui',
+    executable='joint_state_publisher_gui',
+    parameters=[{'source_list': ['/robotis/present_joint_states']}],
+    remappings=[('/joint_states', '/robotis/present_joint_states')])
+  )
+
+  # robot_state_publisher 
+  ld.add_action(Node(
+    package='robot_state_publisher',
+    executable='robot_state_publisher',
+    parameters=[{'robot_description': op3_description_content,}],
+    remappings=[('/joint_states', '/robotis/present_joint_states'),],)
+  )
+
+  # Rviz 
+  ld.add_action(Node(
+    package='rviz2',
+    executable='rviz2',
+    name='rviz2',
+    arguments=['-d', default_rviz_config_path],)
+    output='screen',
+  )
+
+  return ld
