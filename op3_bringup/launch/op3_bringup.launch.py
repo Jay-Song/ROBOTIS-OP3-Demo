@@ -24,7 +24,8 @@ def generate_launch_description():
       'framerate': 30.0,
       'camera_frame_id': 'cam_link',
       'camera_name': 'camera'
-    }]
+    }],
+    remappings=[('/image_raw', '/usb_cam_node/image_raw')]
   )
 
   return LaunchDescription([
