@@ -9,10 +9,10 @@
     min_radius: 20
     max_radius: 300
     filter_h_min: 350
-    filter_h_max: 25
+    filter_h_max: 30
     filter_s_min: 100
     filter_s_max: 255
-    filter_v_min: 60
+    filter_v_min: 65
     filter_v_max: 255
     use_second_filter: false
     filter2_h_min: 30
